@@ -1,0 +1,82 @@
+// Wanderpath Travel B. Database Schema (Corrected)
+
+Table clients {
+  id integer [primary key, increment]
+  first_name varchar [not null]
+  last_name varchar [not null]
+  email varchar [unique, not null]
+  phone varchar
+  created_at timestamp [default: `now()`]
+}
+
+Table passports {
+  id integer [primary key, increment]
+  client_id integer [not null, ref: > clients.id]
+  passport_number varchar [unique, not null]
+  country_code varchar(3) [not null]
+  expiration_date date [not null]
+  created_at timestamp [default: `now()`]
+}
+
+Table agents {
+  id integer [primary key, increment]
+  name varchar [not null]
+  email varchar [unique, not null]
+  role varchar [not null, note: 'junior_agent or senior_manager']
+  created_at timestamp [default: `now()`]
+}
+
+Table itineraries {
+  id integer [primary key, increment]
+  client_id integer [not null, ref: > clients.id]
+  assigned_agent_id integer [not null, ref: > agents.id]
+  title varchar [not null]
+  status varchar [not null, note: 'draft, confirmed, completed, cancelled']
+  start_date date
+  end_date date
+  created_at timestamp [default: `now()`]
+}
+
+Table flights {
+  id integer [primary key, increment]
+  flight_number varchar [not null]
+  airline varchar [not null]
+  origin_airport varchar(3) [not null]
+  destination_airport varchar(3) [not null]
+  departure_time timestamp [not null]
+  arrival_time timestamp [not null]
+  base_price decimal(10,2) [not null]
+}
+
+Table hotels {
+  id integer [primary key, increment]
+  name varchar [not null]
+  city varchar [not null]
+  country varchar [not null]
+  default_cancellation_policy varchar [not null, note: 'refundable or nonrefundable']
+  price_per_night decimal(10,2) [not null]
+}
+
+Table bookings {
+  id integer [primary key, increment]
+  itinerary_id integer [not null, ref: > itineraries.id]
+  booking_type varchar [not null, note: 'flight or hotel']
+  flight_id integer [ref: > flights.id]
+  hotel_id integer [ref: > hotels.id]
+  status varchar [not null, note: 'active, pending_cancellation, cancelled']
+  is_refundable boolean [not null, default: true]
+  cancellation_fee decimal(10,2) [default: 0.00]
+  total_price decimal(10,2) [not null]
+  check_in_date date
+  check_out_date date
+  created_at timestamp [default: `now()`]
+}
+
+Table payments {
+  id integer [primary key, increment]
+  itinerary_id integer [not null, ref: > itineraries.id]
+  amount decimal(10,2) [not null]
+  payment_status varchar [not null, note: 'pending, completed, refunded']
+  payment_method varchar [not null]
+  created_at timestamp [default: `now()`]
+}
