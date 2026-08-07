@@ -1,3 +1,4 @@
+import pathlib
 import asyncio
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -10,17 +11,7 @@ app = Server("WanderpathTravelAgent")
 # 1. RESOURCES
 # Static policy manuals exposed via resources/list and resources/read
 # ============================================================================
-PASSPORT_POLICY_TEXT = """
-# Wanderpath Travel B. - International Passport & Entry Regulations
 
-1. **Minimum Validity Requirement**:
-   - All international flight bookings require a passport valid for at least 6 months beyond the departure date.
-   - For European Union (Schengen Area) destinations, passports must have been issued within the last 10 years.
-
-2. **Expired Passports**:
-   - Bookings associated with expired passports MUST be flagged immediately.
-   - No flight ticket issuance or international hotel check-in can proceed with an expired passport record.
-"""
 
 @app.list_resources()
 async def list_resources() -> list[types.Resource]:
@@ -34,12 +25,15 @@ async def list_resources() -> list[types.Resource]:
         )
     ]
 
+# Resolve path to the policy file
+RESOURCES_DIR = pathlib.Path(__file__).parent / "resources"
+
 @app.read_resource()
-async def read_resource(uri: str | types.AnyUrl) -> str | bytes:
+async def read_resource(uri: str) -> str | bytes:
     """Return the actual content of the requested resource."""
-    # FIX: Cast uri to a string before comparison!
     if str(uri) == "policy://passport-rules":
-        return PASSPORT_POLICY_TEXT
+        policy_file = RESOURCES_DIR / "passport_policy.md"
+        return policy_file.read_text(encoding="utf-8")
     raise ValueError(f"Unknown resource URI: {uri}")
 
 # ============================================================================
