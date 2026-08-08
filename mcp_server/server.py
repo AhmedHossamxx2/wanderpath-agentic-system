@@ -100,6 +100,23 @@ async def list_tools() -> list[types.Tool]:
                 "additionalProperties": False,
             },
         ),
+        types.Tool(
+            name="cancel_booking",
+            description="Cancel a flight or hotel booking by ID. Triggers human elicitation if non-refundable.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "booking_id": {"type": "integer"},
+                    "reason": {"type": "string"},
+                    "human_confirmation": {
+                        "type": "string",
+                        "description": "Optional human sign-off response for non-refundable cancellation elicitation.",
+                    },
+                },
+                "required": ["booking_id", "reason"],
+                "additionalProperties": False,
+            },
+        ),
     ]
 
     # Manager-only privileged tool
@@ -147,6 +164,43 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         b_id = arguments.get("booking_id")
         amt = arguments.get("waived_amount")
         return [types.TextContent(type="text", text=f"SUCCESS: Waived ${amt} cancellation fee for Booking #{b_id}.")]
+
+    elif name == "cancel_booking":
+        b_id = arguments.get("booking_id")
+        reason = arguments.get("reason", "Customer request")
+        confirmation = arguments.get("human_confirmation")
+
+        # Mock database lookup: Booking #3 is non-refundable! (Sophia Chen's flight)
+        # Booking #1 is refundable.
+        is_refundable = False if b_id == 3 else True
+
+        if not is_refundable:
+            # Check if human sign-off was provided via elicitation
+            if not confirmation:
+                # PROTOCOL REQUIREMENT: Pause mid-call and issue elicitation request
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=(
+                            f"ELICITATION_REQUIRED: Booking #{b_id} is NON-REFUNDABLE! "
+                            f"Canceling will incur a $250.00 cancellation fee. "
+                            f"Please respond with 'human_confirmation': 'APPROVED' or 'REJECTED' to proceed."
+                        ),
+                    )
+                ]
+            
+            if confirmation.upper() != "APPROVED":
+                return [types.TextContent(type="text", text=f"ABORTED: Cancellation for non-refundable Booking #{b_id} was rejected by human operator.")]
+
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"SUCCESS (ELICITED): Non-refundable Booking #{b_id} cancelled with human sign-off. Fee charged: $250.00. Reason: {reason}",
+                )
+            ]
+
+        # Standard refundable cancellation
+        return [types.TextContent(type="text", text=f"SUCCESS: Refundable Booking #{b_id} cancelled successfully. Full refund issued.")]
 
     raise ValueError(f"Unknown tool: {name}")
 
