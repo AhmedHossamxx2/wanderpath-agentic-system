@@ -130,6 +130,26 @@ async def list_tools() -> list[types.Tool]:
                 "additionalProperties": False,
             },
         ),
+        types.Tool(
+            name="modify_booking_dates",
+            description="[DEFENSIVE WRITE TOOL] Modify start and end dates for an existing travel booking.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "booking_id": {"type": "integer", "minimum": 1},
+                    "start_date": {
+                        "type": "string",
+                        "description": "Start date in YYYY-MM-DD format",
+                    },
+                    "end_date": {
+                        "type": "string",
+                        "description": "End date in YYYY-MM-DD format",
+                    },
+                },
+                "required": ["booking_id", "start_date", "end_date"],
+                "additionalProperties": False,
+            },
+        )
     ]
 
     # Manager-only privileged tool
@@ -270,6 +290,59 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             types.TextContent(
                 type="text",
                 text=f"COMPLETED: Generated {days}-day itinerary report for {dest}. All 4 processing stages finished successfully.",
+            )
+        ]
+
+    elif name == "modify_booking_dates":
+        # 1. Handler-Level Auth Check
+        if CURRENT_ROLE != "senior_manager":
+            return [
+                types.TextContent(
+                    type="text",
+                    text="PERMISSION_DENIED: Senior Manager authorization required to modify booking dates.",
+                )
+            ]
+
+        b_id = arguments.get("booking_id")
+        s_date = arguments.get("start_date")
+        e_date = arguments.get("end_date")
+
+        # 2. Server-Side Business Logic Validation
+        if e_date <= s_date:
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"VALIDATION_ERROR: End date ({e_date}) must be strictly after start date ({s_date}).",
+                )
+            ]
+
+        return [
+            types.TextContent(
+                type="text",
+                text=f"SUCCESS: Booking #{b_id} dates updated to {s_date} -> {e_date}.",
+            )
+        ]
+        # 1. Handler-Level Auth Check
+        if CURRENT_ROLE != "senior_manager":
+            raise PermissionError("HANDLER_AUTH_FAILED: Senior Manager authorization required to modify booking dates.")
+
+        b_id = arguments.get("booking_id")
+        s_date = arguments.get("start_date")
+        e_date = arguments.get("end_date")
+
+        # 2. Server-Side Business Logic Validation
+        if e_date <= s_date:
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"VALIDATION_ERROR: End date ({e_date}) must be strictly after start date ({s_date}).",
+                )
+            ]
+
+        return [
+            types.TextContent(
+                type="text",
+                text=f"SUCCESS: Booking #{b_id} dates updated to {s_date} -> {e_date}.",
             )
         ]
 
