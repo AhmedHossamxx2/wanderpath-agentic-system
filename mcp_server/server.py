@@ -1,19 +1,25 @@
+import argparse
 import asyncio
 import pathlib
 import mcp.types as types
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
+from mcp.server.sse import SseServerTransport
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.routing import Route, Mount
+import uvicorn
 
+# Initialize MCP Server
 app = Server("WanderpathTravelAgent")
 
 # ============================================================================
 # SESSION STATE & RBAC
-# Tracks runtime role state for the active stdio session
 # ============================================================================
-CURRENT_ROLE = "junior_agent"  # Default role: junior_agent | senior_manager
+CURRENT_ROLE = "junior_agent"  # junior_agent | senior_manager
 
 # ============================================================================
-# RESOURCES & PROMPTS (Preserved from Step 3)
+# 1. RESOURCES
 # ============================================================================
 RESOURCES_DIR = pathlib.Path(__file__).parent / "resources"
 
@@ -35,6 +41,9 @@ async def read_resource(uri: str | types.AnyUrl) -> str | bytes:
         return policy_file.read_text(encoding="utf-8")
     raise ValueError(f"Unknown resource URI: {uri}")
 
+# ============================================================================
+# 2. PROMPTS
+# ============================================================================
 @app.list_prompts()
 async def list_prompts() -> list[types.Prompt]:
     return [
@@ -73,12 +82,10 @@ async def get_prompt(name: str, arguments: dict[str, str] | None) -> types.GetPr
     raise ValueError(f"Unknown prompt: {name}")
 
 # ============================================================================
-# DYNAMIC TOOLS & NOTIFICATIONS
+# 3. DEFENSIVE TOOLS
 # ============================================================================
 @app.list_tools()
 async def list_tools() -> list[types.Tool]:
-    """Dynamically return tools based on CURRENT_ROLE session state."""
-    # Base tools available to all roles
     tools = [
         types.Tool(
             name="get_itinerary_details",
@@ -110,7 +117,7 @@ async def list_tools() -> list[types.Tool]:
                     "reason": {"type": "string"},
                     "human_confirmation": {
                         "type": "string",
-                        "description": "Optional human sign-off response for non-refundable cancellation elicitation.",
+                        "description": "Optional human sign-off response ('APPROVED' or 'REJECTED').",
                     },
                 },
                 "required": ["booking_id", "reason"],
@@ -137,22 +144,15 @@ async def list_tools() -> list[types.Tool]:
                 "type": "object",
                 "properties": {
                     "booking_id": {"type": "integer", "minimum": 1},
-                    "start_date": {
-                        "type": "string",
-                        "description": "Start date in YYYY-MM-DD format",
-                    },
-                    "end_date": {
-                        "type": "string",
-                        "description": "End date in YYYY-MM-DD format",
-                    },
+                    "start_date": {"type": "string", "description": "YYYY-MM-DD format"},
+                    "end_date": {"type": "string", "description": "YYYY-MM-DD format"},
                 },
                 "required": ["booking_id", "start_date", "end_date"],
                 "additionalProperties": False,
             },
-        )
+        ),
     ]
 
-    # Manager-only privileged tool
     if CURRENT_ROLE == "senior_manager":
         tools.append(
             types.Tool(
@@ -184,33 +184,24 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         passcode = arguments.get("passcode")
         if passcode == "admin123":
             CURRENT_ROLE = "senior_manager"
-            # FIX: Properly extract the active session from the ContextVar
-            await app.request_context.session.send_tool_list_changed()
-            
-            return [types.TextContent(type="text", text="Authentication successful! Senior Manager role activated. Tools list updated.")]
+            try:
+                ctx = app.request_context
+                if ctx and ctx.session:
+                    await ctx.session.send_tool_list_changed()
+            except Exception:
+                pass
+            return [types.TextContent(type="text", text="Authentication successful! Senior Manager role activated.")]
         else:
             return [types.TextContent(type="text", text="Authentication failed: Invalid passcode.")]
-
-    elif name == "override_cancellation_fee":
-        if CURRENT_ROLE != "senior_manager":
-            raise PermissionError("Handler Auth Failed: Senior Manager role required.")
-        b_id = arguments.get("booking_id")
-        amt = arguments.get("waived_amount")
-        return [types.TextContent(type="text", text=f"SUCCESS: Waived ${amt} cancellation fee for Booking #{b_id}.")]
 
     elif name == "cancel_booking":
         b_id = arguments.get("booking_id")
         reason = arguments.get("reason", "Customer request")
         confirmation = arguments.get("human_confirmation")
-
-        # Mock database lookup: Booking #3 is non-refundable! (Sophia Chen's flight)
-        # Booking #1 is refundable.
         is_refundable = False if b_id == 3 else True
 
         if not is_refundable:
-            # Check if human sign-off was provided via elicitation
             if not confirmation:
-                # PROTOCOL REQUIREMENT: Pause mid-call and issue elicitation request
                 return [
                     types.TextContent(
                         type="text",
@@ -221,140 +212,112 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                         ),
                     )
                 ]
-            
             if confirmation.upper() != "APPROVED":
-                return [types.TextContent(type="text", text=f"ABORTED: Cancellation for non-refundable Booking #{b_id} was rejected by human operator.")]
+                return [types.TextContent(type="text", text=f"ABORTED: Cancellation for non-refundable Booking #{b_id} was rejected.")]
+            return [types.TextContent(type="text", text=f"SUCCESS (ELICITED): Non-refundable Booking #{b_id} cancelled with human sign-off. Reason: {reason}")]
 
-            return [
-                types.TextContent(
-                    type="text",
-                    text=f"SUCCESS (ELICITED): Non-refundable Booking #{b_id} cancelled with human sign-off. Fee charged: $250.00. Reason: {reason}",
-                )
-            ]
-
-        # Standard refundable cancellation
         return [types.TextContent(type="text", text=f"SUCCESS: Refundable Booking #{b_id} cancelled successfully. Full refund issued.")]
 
     elif name == "generate_itinerary_report":
         dest = arguments.get("destination")
         days = arguments.get("duration_days")
-        session = app.request_context.session
+        try:
+            session = app.request_context.session
+            steps = 4
+            for idx in range(1, steps + 1):
+                if session:
+                    await session.send_progress_notification(
+                        progress_token=f"itinerary-{dest}",
+                        progress=float(idx),
+                        total=float(steps),
+                    )
+                await asyncio.sleep(0.2)
+        except Exception:
+            pass
 
-        steps = [
-            f"Searching flight matrix for {dest}...",
-            f"Checking hotel availability for {days} nights...",
-            "Validating passport and visa entry policies...",
-            "Rendering final itinerary document...",
-        ]
-        total_steps = len(steps)
-
-        for idx, step_msg in enumerate(steps, start=1):
-            if session:
-                # Send progress notification over active stdio session
-                await session.send_progress_notification(
-                    progress_token=f"itinerary-{dest}",
-                    progress=float(idx),
-                    total=float(total_steps),
-                )
-            await asyncio.sleep(0.4)  # Simulate workload
-
-        return [
-            types.TextContent(
-                type="text",
-                text=f"COMPLETED: Generated {days}-day itinerary report for {dest}. All 4 processing stages finished successfully.",
-            )
-        ]
-        dest = arguments.get("destination")
-        days = arguments.get("duration_days")
-        ctx = app.request_context
-
-        steps = [
-            f"Searching flight matrix for {dest}...",
-            f"Checking hotel availability for {days} nights...",
-            "Validating passport and visa entry policies...",
-            "Rendering final itinerary document...",
-        ]
-        total_steps = len(steps)
-
-        for idx, step_msg in enumerate(steps, start=1):
-            # PROTOCOL REQUIREMENT: Stream progress notifications over stdio session
-            if ctx and ctx.session:
-                await ctx.session.send_progress_notification(
-                    progress_token=f"itinerary-{dest}",
-                    progress=float(idx),
-                    total=float(total_steps),
-                )
-            await asyncio.sleep(0.5)  # Simulate multi-step processing workload
-
-        return [
-            types.TextContent(
-                type="text",
-                text=f"COMPLETED: Generated {days}-day itinerary report for {dest}. All 4 processing stages finished successfully.",
-            )
-        ]
+        return [types.TextContent(type="text", text=f"COMPLETED: Generated {days}-day itinerary report for {dest}. All 4 processing stages finished successfully.")]
 
     elif name == "modify_booking_dates":
-        # 1. Handler-Level Auth Check
         if CURRENT_ROLE != "senior_manager":
-            return [
-                types.TextContent(
-                    type="text",
-                    text="PERMISSION_DENIED: Senior Manager authorization required to modify booking dates.",
-                )
-            ]
+            return [types.TextContent(type="text", text="PERMISSION_DENIED: Senior Manager authorization required to modify booking dates.")]
 
         b_id = arguments.get("booking_id")
         s_date = arguments.get("start_date")
         e_date = arguments.get("end_date")
 
-        # 2. Server-Side Business Logic Validation
         if e_date <= s_date:
-            return [
-                types.TextContent(
-                    type="text",
-                    text=f"VALIDATION_ERROR: End date ({e_date}) must be strictly after start date ({s_date}).",
-                )
-            ]
+            return [types.TextContent(type="text", text=f"VALIDATION_ERROR: End date ({e_date}) must be strictly after start date ({s_date}).")]
 
-        return [
-            types.TextContent(
-                type="text",
-                text=f"SUCCESS: Booking #{b_id} dates updated to {s_date} -> {e_date}.",
-            )
-        ]
-        # 1. Handler-Level Auth Check
+        return [types.TextContent(type="text", text=f"SUCCESS: Booking #{b_id} dates updated to {s_date} -> {e_date}.")]
+
+    elif name == "override_cancellation_fee":
         if CURRENT_ROLE != "senior_manager":
-            raise PermissionError("HANDLER_AUTH_FAILED: Senior Manager authorization required to modify booking dates.")
-
+            raise PermissionError("Handler Auth Failed: Senior Manager role required.")
         b_id = arguments.get("booking_id")
-        s_date = arguments.get("start_date")
-        e_date = arguments.get("end_date")
-
-        # 2. Server-Side Business Logic Validation
-        if e_date <= s_date:
-            return [
-                types.TextContent(
-                    type="text",
-                    text=f"VALIDATION_ERROR: End date ({e_date}) must be strictly after start date ({s_date}).",
-                )
-            ]
-
-        return [
-            types.TextContent(
-                type="text",
-                text=f"SUCCESS: Booking #{b_id} dates updated to {s_date} -> {e_date}.",
-            )
-        ]
+        amt = arguments.get("waived_amount")
+        return [types.TextContent(type="text", text=f"SUCCESS: Waived ${amt} cancellation fee for Booking #{b_id}.")]
 
     raise ValueError(f"Unknown tool: {name}")
 
+# [Keep all your existing code down to the run_stdio block]
+# Ensure these imports are at the top of your file:
+# from starlette.requests import Request
+# from starlette.routing import Route, Mount
+
 # ============================================================================
-# SERVER EXECUTION
+# DUAL TRANSPORT RUNNER (SSE / HTTP vs STDIO)
 # ============================================================================
-async def main():
+async def run_stdio():
+    print("Starting MCP Server over stdio transport...")
     async with stdio_server() as (read_stream, write_stream):
         init_options = app.create_initialization_options()
         await app.run(read_stream, write_stream, init_options)
 
+def run_sse(host: str = "0.0.0.0", port: int = 8000):
+    import uvicorn
+    from mcp.server.sse import SseServerTransport
+
+    print(f"🌐 Starting MCP Server over Streamable HTTP / SSE transport on http://{host}:{port}/sse")
+    
+    # Initialize the SSE transport pointing to /messages
+    sse_transport = SseServerTransport("/messages")
+
+    # A pure, lightweight ASGI application (Bypasses Starlette entirely to prevent crashes)
+    async def asgi_app(scope, receive, send):
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    await send({"type": "lifespan.shutdown.complete"})
+                    break
+        elif scope["type"] == "http":
+            path = scope.get("path", "")
+            if path == "/sse":
+                # Safely bind the read/write streams
+                async with sse_transport.connect_sse(scope, receive, send) as (read_stream, write_stream):
+                    init_options = app.create_initialization_options()
+                    await app.run(read_stream, write_stream, init_options)
+            elif path == "/messages":
+                # Safely handle the POST JSON-RPC payload
+                await sse_transport.handle_post_message(scope, receive, send)
+            else:
+                # 404 for unmatched routes
+                await send({"type": "http.response.start", "status": 404, "headers": []})
+                await send({"type": "http.response.body", "body": b""})
+
+    # Run the raw ASGI app via Uvicorn
+    uvicorn.run(asgi_app, host=host, port=port, log_level="info")
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    import argparse
+    parser = argparse.ArgumentParser(description="Wanderpath Travel Agent MCP Server")
+    parser.add_argument("--transport", choices=["stdio", "sse"], default="sse", help="Transport mechanism (default: sse)")
+    parser.add_argument("--port", type=int, default=8000, help="Port for SSE transport")
+    args = parser.parse_args()
+
+    if args.transport == "stdio":
+        asyncio.run(run_stdio())
+    else:
+        run_sse(port=args.port)
