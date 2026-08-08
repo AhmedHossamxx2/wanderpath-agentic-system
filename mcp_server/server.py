@@ -117,6 +117,19 @@ async def list_tools() -> list[types.Tool]:
                 "additionalProperties": False,
             },
         ),
+        types.Tool(
+            name="generate_itinerary_report",
+            description="Long-running operation: Compile a comprehensive multi-city travel itinerary with progress updates.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "destination": {"type": "string"},
+                    "duration_days": {"type": "integer"},
+                },
+                "required": ["destination", "duration_days"],
+                "additionalProperties": False,
+            },
+        ),
     ]
 
     # Manager-only privileged tool
@@ -201,6 +214,64 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
         # Standard refundable cancellation
         return [types.TextContent(type="text", text=f"SUCCESS: Refundable Booking #{b_id} cancelled successfully. Full refund issued.")]
+
+    elif name == "generate_itinerary_report":
+        dest = arguments.get("destination")
+        days = arguments.get("duration_days")
+        session = app.request_context.session
+
+        steps = [
+            f"Searching flight matrix for {dest}...",
+            f"Checking hotel availability for {days} nights...",
+            "Validating passport and visa entry policies...",
+            "Rendering final itinerary document...",
+        ]
+        total_steps = len(steps)
+
+        for idx, step_msg in enumerate(steps, start=1):
+            if session:
+                # Send progress notification over active stdio session
+                await session.send_progress_notification(
+                    progress_token=f"itinerary-{dest}",
+                    progress=float(idx),
+                    total=float(total_steps),
+                )
+            await asyncio.sleep(0.4)  # Simulate workload
+
+        return [
+            types.TextContent(
+                type="text",
+                text=f"COMPLETED: Generated {days}-day itinerary report for {dest}. All 4 processing stages finished successfully.",
+            )
+        ]
+        dest = arguments.get("destination")
+        days = arguments.get("duration_days")
+        ctx = app.request_context
+
+        steps = [
+            f"Searching flight matrix for {dest}...",
+            f"Checking hotel availability for {days} nights...",
+            "Validating passport and visa entry policies...",
+            "Rendering final itinerary document...",
+        ]
+        total_steps = len(steps)
+
+        for idx, step_msg in enumerate(steps, start=1):
+            # PROTOCOL REQUIREMENT: Stream progress notifications over stdio session
+            if ctx and ctx.session:
+                await ctx.session.send_progress_notification(
+                    progress_token=f"itinerary-{dest}",
+                    progress=float(idx),
+                    total=float(total_steps),
+                )
+            await asyncio.sleep(0.5)  # Simulate multi-step processing workload
+
+        return [
+            types.TextContent(
+                type="text",
+                text=f"COMPLETED: Generated {days}-day itinerary report for {dest}. All 4 processing stages finished successfully.",
+            )
+        ]
 
     raise ValueError(f"Unknown tool: {name}")
 
