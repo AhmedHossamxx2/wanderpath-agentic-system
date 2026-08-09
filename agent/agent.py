@@ -1,103 +1,170 @@
+"""
+Wanderpath Travel Agency - MCP Agent Integration Module (HTTP REST API)
+======================================================
+This module provides a production-grade agent implementation that connects
+to the Wanderpath MCP Server via standard I/O transport. It dynamically retrieves
+available tools and uses HTTP REST calls to Mistral AI for agentic routing,
+completely avoiding SDK dependency conflicts.
+
+Author: Ahmed Hossam
+License: MIT
+"""
+
 import asyncio
-import pathlib
 import json
+import logging
+import os
+import pathlib
+from typing import Any, Dict, List, Optional
+
+import httpx
+from dotenv import load_dotenv
+
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-# ============================================================================
-# MOCK LLM ROUTER
-# Simulates an LLM evaluating a prompt against a list of dynamically provided tools
-# ============================================================================
-def simulate_llm_tool_selection(user_prompt: str, available_tools: list) -> dict | None:
-    """
-    Acts as our 'LLM'. It looks at the user prompt, reads the available tool descriptions,
-    and returns a structured tool call (or None if no tool matches).
-    """
-    prompt = user_prompt.lower()
-    tool_names = [t.name for t in available_tools]
+# Set up structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("WanderpathAgent")
 
-    print("\n🧠 [LLM Router] Thinking...")
-    
-    if "itinerary" in prompt and "get_itinerary_details" in tool_names:
-        print("🧠 [LLM Router] Decision: The user wants itinerary details. Selecting 'get_itinerary_details'.")
-        # Extract numbers from prompt to act as the ID
-        extracted_id = int(''.join(filter(str.isdigit, prompt)) or 101)
-        return {
-            "tool": "get_itinerary_details",
-            "arguments": {"itinerary_id": extracted_id}
-        }
-        
-    if "manager" in prompt and "authenticate_manager" in tool_names:
-        print("🧠 [LLM Router] Decision: The user wants to elevate privileges. Selecting 'authenticate_manager'.")
-        return {
-            "tool": "authenticate_manager",
-            "arguments": {"passcode": "admin123"}  # The LLM "knows" this from its system prompt/context
-        }
-        
-    print("🧠 [LLM Router] Decision: No suitable tool found for this prompt.")
-    return None
 
-# ============================================================================
-# AGENT MAIN LOOP
-# ============================================================================
-async def run_minimal_agent():
-    root_dir = pathlib.Path(__file__).parent.parent.resolve()
-    python_venv = root_dir / "mcp_server" / ".venv" / "Scripts" / "python.exe"
-    server_script = root_dir / "mcp_server" / "server.py"
+def convert_mcp_to_mistral_schemas(mcp_tools: List[Any]) -> List[Dict[str, Any]]:
+    """
+    Translates raw MCP tool objects into the OpenAI/Mistral
+    compatible Function Calling JSON Schema specification.
+    """
+    formatted_tools: List[Dict[str, Any]] = []
+    for tool in mcp_tools:
+        formatted_tools.append({
+            "type": "function",
+            "function": {
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.inputSchema,
+            },
+        })
+    logger.debug(f"Converted {len(formatted_tools)} tool schemas for model ingestion.")
+    return formatted_tools
+
+
+async def process_user_intent(
+    session: ClientSession,
+    api_key: str,
+    user_prompt: str,
+    tools: List[Dict[str, Any]],
+    model_name: str = "mistral-large-latest",
+) -> Optional[str]:
+    """
+    Evaluates a user prompt against registered MCP tools via Mistral AI REST API.
+    Executes selected function calls over the MCP session transport.
+    """
+    logger.info(f"Processing query: '{user_prompt}'")
+
+    url = "https://api.mistral.ai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    payload = {
+        "model": model_name,
+        "messages": [{"role": "user", "content": user_prompt}],
+        "tools": tools,
+        "tool_choice": "auto",
+    }
+
+    try:
+        # 1. Call Mistral API via pure HTTP
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            response_data = response.json()
+
+        message = response_data["choices"][0]["message"]
+        tool_calls = message.get("tool_calls")
+
+        # 2. Handle tool call decisions made by the LLM
+        if tool_calls:
+            for call in tool_calls:
+                function_name = call["function"]["name"]
+                arguments_str = call["function"]["arguments"]
+                
+                # Mistral sometimes returns a dict, sometimes a JSON string
+                arguments = json.loads(arguments_str) if isinstance(arguments_str, str) else arguments_str
+
+                logger.info(f"Model selected tool '{function_name}' with arguments: {arguments}")
+                
+                # 3. Dispatch tool call across the MCP transport
+                result = await session.call_tool(function_name, arguments=arguments)
+                observation = result.content[0].text
+                
+                logger.info(f"Server response received: {observation}\n")
+                return observation
+        else:
+            content = message.get("content", "")
+            logger.info("Model answered directly without invoking external tools.")
+            logger.info(f"Model Content: {content}\n")
+            return content
+
+    except httpx.HTTPStatusError as exc:
+        logger.error(f"Mistral API returned an error: {exc.response.text}")
+        return None
+    except Exception as exc:
+        logger.error(f"Execution failure during prompt processing: {exc}", exc_info=True)
+        return None
+
+
+async def main() -> None:
+    """
+    Agent entry point. Initializes local configuration, establishes stdio
+    connection with the MCP server runtime, and executes sample task workflows.
+    """
+    load_dotenv()
+    api_key = os.getenv("MISTRAL_API_KEY")
+
+    if not api_key or api_key == "your_actual_mistral_api_key_here":
+        logger.critical("MISTRAL_API_KEY environment variable is missing or invalid. Aborting run.")
+        return
+
+    # Establish path configurations to local MCP server script
+    project_root = pathlib.Path(__file__).parent.parent.resolve()
+    python_executable = project_root / "mcp_server" / ".venv" / "Scripts" / "python.exe"
+    server_script = project_root / "mcp_server" / "server.py"
 
     server_params = StdioServerParameters(
-        command=str(python_venv),
-        args=[str(server_script), "--transport", "stdio"], # Force stdio for local agent loop
+        command=str(python_executable),
+        args=[str(server_script), "--transport", "stdio"],
     )
 
-    print("🤖 Agent booting up...")
-    print("🔌 Connecting to MCP Server...")
+    logger.info("Initializing connection to MCP server instance...")
 
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
+    async with stdio_client(server_params) as (read_stream, write_stream):
+        async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
-            print("✅ Agent successfully connected to server environment.\n")
+            logger.info("MCP Session established successfully.")
 
-            # ---------------------------------------------------------
-            # PHASE 1: DISCOVERY
-            # ---------------------------------------------------------
-            print("🔍 AGENT PHASE 1: DISCOVERING CAPABILITIES")
-            tools_response = await session.list_tools()
-            available_tools = tools_response.tools
-            
-            print(f"Agent discovered {len(available_tools)} tools:")
-            for tool in available_tools:
-                print(f"  - {tool.name}: {tool.description}")
+            # Dynamic Discovery Phase
+            tools_payload = await session.list_tools()
+            discovered_tools = tools_payload.tools
+            mistral_tools = convert_mcp_to_mistral_schemas(discovered_tools)
 
-            # ---------------------------------------------------------
-            # PHASE 2: AGENTIC LOOP (Query 1)
-            # ---------------------------------------------------------
-            print("\n🗣️ AGENT PHASE 2: PROCESSING USER INTENT")
-            user_prompt_1 = "Can you pull up my itinerary for booking 105?"
-            print(f"User Prompt: '{user_prompt_1}'")
-            
-            tool_call_1 = simulate_llm_tool_selection(user_prompt_1, available_tools)
-            
-            if tool_call_1:
-                print(f"⚡ [Agent] Executing tool: {tool_call_1['tool']} with args {tool_call_1['arguments']}")
-                result = await session.call_tool(tool_call_1['tool'], arguments=tool_call_1['arguments'])
-                print(f"📥 [Agent] Observation from Server:\n   {result.content[0].text}")
+            logger.info(f"Discovered {len(discovered_tools)} MCP tools from server runtime.")
 
-            # ---------------------------------------------------------
-            # PHASE 3: AGENTIC LOOP (Query 2)
-            # ---------------------------------------------------------
-            print("\n🗣️ AGENT PHASE 3: PROCESSING SECOND INTENT")
-            user_prompt_2 = "I need manager access to override a fee."
-            print(f"User Prompt: '{user_prompt_2}'")
-            
-            tool_call_2 = simulate_llm_tool_selection(user_prompt_2, available_tools)
-            
-            if tool_call_2:
-                print(f"⚡ [Agent] Executing tool: {tool_call_2['tool']} with args {tool_call_2['arguments']}")
-                result = await session.call_tool(tool_call_2['tool'], arguments=tool_call_2['arguments'])
-                print(f"📥 [Agent] Observation from Server:\n   {result.content[0].text}")
+            # Execute Workflows
+            queries = [
+                "Can you pull up my itinerary details for booking ID 105?",
+                "I need manager privilege elevation, my security passcode is admin123.",
+            ]
 
-            print("\n🎉 Minimal Agent Loop Completed!")
+            for query in queries:
+                await process_user_intent(session, api_key, query, mistral_tools)
+
+            logger.info("All agent workflows completed cleanly.")
+
 
 if __name__ == "__main__":
-    asyncio.run(run_minimal_agent())
+    asyncio.run(main())
