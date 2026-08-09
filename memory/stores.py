@@ -1,8 +1,8 @@
 """
-Wanderpath Travel Agency - Memory Persistence Stores
+Wanderpath Travel Agency - Memory Persistence Stores (Updated)
 ===================================================
 Provides decoupled storage implementations for Episodic Memory (event logs)
-and Semantic Memory (consolidated facts).
+and Semantic Memory (consolidated facts with versioning & expiry).
 """
 
 from dataclasses import dataclass, field
@@ -17,6 +17,18 @@ class EpisodicEvent:
     reasoning: str
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SemanticFact:
+    fact_id: int
+    client_id: int
+    fact_key: str
+    fact_value: str
+    version: int
+    status: str  # 'ACTIVE', 'SUPERSEDED', 'EXPIRED'
+    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    superseded_at: Optional[str] = None
 
 
 class EpisodicStore:
@@ -42,10 +54,27 @@ class EpisodicStore:
 
 
 class SemanticStore:
-    """Placeholder for Consolidated Semantic Facts (populated strictly via consolidation pass)."""
+    """Stores consolidated semantic facts derived strictly via periodic consolidation passes."""
 
     def __init__(self):
-        self.facts: List[Dict[str, Any]] = []
+        self.facts: List[SemanticFact] = []
+        self._counter = 1
 
-    def get_all_facts(self) -> List[Dict[str, Any]]:
-        return self.facts
+    def add_fact(self, client_id: int, fact_key: str, fact_value: str, version: int = 1) -> SemanticFact:
+        fact = SemanticFact(
+            fact_id=self._counter,
+            client_id=client_id,
+            fact_key=fact_key,
+            fact_value=fact_value,
+            version=version,
+            status="ACTIVE",
+        )
+        self.facts.append(fact)
+        self._counter += 1
+        return fact
+
+    def get_facts_for_client(self, client_id: int) -> List[SemanticFact]:
+        return [f for f in self.facts if f.client_id == client_id]
+
+    def get_active_facts_for_client(self, client_id: int) -> List[SemanticFact]:
+        return [f for f in self.facts if f.client_id == client_id and f.status == "ACTIVE"]
