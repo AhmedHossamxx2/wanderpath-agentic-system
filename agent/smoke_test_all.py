@@ -10,7 +10,7 @@ async def run_master_smoke_test():
 
     server_params = StdioServerParameters(
         command=str(python_venv),
-        args=[str(server_script)],
+        args=[str(server_script), "--transport", "stdio"], # Explicitly set stdio mode
     )
 
     print("==================================================================")

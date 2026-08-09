@@ -1,0 +1,54 @@
+==================================================================
+🚀 STARTING MASTER MCP PROTOCOL SMOKE TEST (ALL 7 CONCERNS)
+==================================================================
+
+1️⃣ Testing Handshake & Capability Negotiation...
+   ✅ Handshake initialized. Server Capabilities Negotiated.
+
+2️⃣ Testing Policy Resource (`policy://passport-rules`)...
+   ✅ Successfully fetched static policy resource text.
+
+3️⃣ Testing Parameterized Prompt Template (`draft_refund_explanation`)...
+   ✅ Successfully rendered prompt template with arguments.
+
+4️⃣ Testing Dynamic Notifications & RBAC Role Elevation...
+   Initial tools (Junior): ['get_itinerary_details', 'authenticate_manager', 'cancel_booking', 'generate_itinerary_report', 'modify_booking_dates']
+   Updated tools (Manager): ['get_itinerary_details', 'authenticate_manager', 'cancel_booking', 'generate_itinerary_report', 'modify_booking_dates', 'override_cancellation_fee']
+   ✅ Role elevation triggered dynamic tool list expansion.
+
+5️⃣ Testing Elicitation Mid-Call Pause (`cancel_booking`)...
+   ✅ Server correctly paused mid-call to demand human sign-off.
+   ✅ Completed cancellation after receiving human confirmation.
+
+6️⃣ Testing Progress Tracking (`generate_itinerary_report`)...
+   ✅ Completed multi-stage progress tracking operation.
+
+7️⃣ Testing Defensive Validation & Auth (`modify_booking_dates`)...
+   ✅ Caught invalid date order validation error.
+   ✅ Defensive write tool mutated state successfully.
+
+==================================================================
+🎉 ALL 7 MCP CONCERNS VERIFIED SUCCESSFULLY! READY FOR SUBMISSION!
+==================================================================
+==================================================================
+🚀 STARTING MASTER LAB 2 SMOKE TEST (ALL MEMORY & RAG CONCERNS)
+==================================================================
+
+1️⃣ Testing Short-Term Memory & Scratchpad Decoupling...
+   ✅ Pruning retained scratchpad state perfectly.
+
+2️⃣ Testing Promote-or-Drop Router...
+   ✅ Event routed to EpisodicStore without writing to SemanticStore.
+
+3️⃣ Testing Semantic Consolidation & Conflict Resolution...
+   ✅ Conflict resolved: Fact v1 SUPERSEDED, Fact v2 ACTIVE.
+
+4️⃣ Testing Vector Store & All 4 RAG Architectures...
+   ✅ Naive, Hybrid, Agentic, and Graph RAG all functional.
+
+5️⃣ Testing Self-RAG Verification Layer...
+   ✅ Self-RAG relevance and groundedness checks verified.
+
+==================================================================
+🎉 MASTER LAB 2 SMOKE TEST PASSED FLAWLESSLY!
+==================================================================
