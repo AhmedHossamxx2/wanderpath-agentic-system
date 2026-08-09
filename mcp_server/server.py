@@ -313,7 +313,8 @@ def run_sse(host: str = "0.0.0.0", port: int = 8000):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Wanderpath Travel Agent MCP Server")
-    parser.add_argument("--transport", choices=["stdio", "sse"], default="sse", help="Transport mechanism (default: sse)")
+    # Change default from "sse" to "stdio"
+    parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio", help="Transport mechanism (default: stdio)")
     parser.add_argument("--port", type=int, default=8000, help="Port for SSE transport")
     args = parser.parse_args()
 

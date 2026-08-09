@@ -60,6 +60,10 @@ class SemanticStore:
         self.facts: List[SemanticFact] = []
         self._counter = 1
 
+    def get_all_facts(self) -> List[SemanticFact]:
+        """Returns all recorded semantic facts."""
+        return self.facts
+
     def add_fact(self, client_id: int, fact_key: str, fact_value: str, version: int = 1) -> SemanticFact:
         fact = SemanticFact(
             fact_id=self._counter,

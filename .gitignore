@@ -1,4 +1,87 @@
-# .gitignore
+# ==============================================================================
+# Wanderpath Travel Agency - Production .gitignore
+# ==============================================================================
+
+# --- Secrets & Environment Configurations ---
 .env
-.venv/
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# --- Python & Execution Artifacts ---
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- Virtual Environments ---
+.venv/
+venv/
+ENV/
+env/
+mcp_server/.venv/
+agent/.venv/
+
+# --- Vector Database Persistence & Local Indexes ---
+rag/chroma_db/
+rag/test_chroma/
+rag/test_chroma_rag/
+rag/test_chroma_all4/
+rag/chroma_eval/
+rag/chroma_agent/
+rag/chroma_l2_smoke/
+*.sqlite3-journal
+
+# --- Testing, Coverage & Benchmarking ---
+.pytest_cache/
+.coverage
+htmlcov/
+.nox/
+.tox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# --- IDEs & Code Editors ---
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Operating System Artifacts ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# --- Log Files & Temporary Outputs ---
+*.log
+logs/
+*.tmp
+*.bak
