@@ -1,0 +1,38 @@
+[
+    {
+        "id": "Q1_General_Policy",
+        "category": "General Conceptual",
+        "question": "What is the standard cancellation window for the Alpine Resort in Zermatt?",
+        "target_keyword": "14 days"
+    },
+    {
+        "id": "Q2_Exact_Citation",
+        "category": "Citation / Exact ID",
+        "question": "What is the exact fasting requirement before pre-spa treatments in Switzerland?",
+        "target_keyword": "2 hours"
+    },
+    {
+        "id": "Q3_Exact_Visa",
+        "category": "Citation / Exact ID",
+        "question": "What visa requirement applies to US citizens traveling to Bali?",
+        "target_keyword": "visa on arrival"
+    },
+    {
+        "id": "Q4_Multi_Hop_Advisory",
+        "category": "Multi-Hop Reasoning",
+        "question": "Which hotel in Tokyo accommodates service animals and has an active public transit strike advisory?",
+        "target_keyword": "tokyo grand palace"
+    },
+    {
+        "id": "Q5_Nonrefundable_Policy",
+        "category": "General Policy",
+        "question": "Are holiday package bookings in Bali during December refundable?",
+        "target_keyword": "non-refundable"
+    },
+    {
+        "id": "Q6_Graph_Entity_Rel",
+        "category": "Relational Entity",
+        "question": "Which city affected by transit strikes houses a hotel with service animal accommodations?",
+        "target_keyword": "tokyo"
+    }
+]
