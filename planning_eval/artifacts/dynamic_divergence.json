@@ -1,0 +1,45 @@
+{
+  "method": "dynamic_decomposition",
+  "case": "maria_disruption_no_seats",
+  "metrics": {
+    "llm_calls": 4,
+    "tokens": 3800,
+    "latency_ms": 5200
+  },
+  "plan_built_up_front": false,
+  "execution_log": [
+    {
+      "step": 1,
+      "tool": "create_booking",
+      "args": {
+        "target_date": "same_day"
+      },
+      "result": "FAILURE: No seats available."
+    },
+    {
+      "step": 2,
+      "tool": "create_booking",
+      "args": {
+        "target_date": "next_day"
+      },
+      "result": "SUCCESS"
+    },
+    {
+      "step": 3,
+      "tool": "check_entry_requirements",
+      "args": {
+        "date": "next_day"
+      },
+      "result": "SUCCESS - DIVERGENCE TRIGGERED"
+    },
+    {
+      "step": 4,
+      "tool": "modify_booking_dates",
+      "args": {
+        "hotel": "riad",
+        "date": "next_day"
+      },
+      "result": "SUCCESS"
+    }
+  ]
+}
