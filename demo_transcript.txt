@@ -1,3 +1,68 @@
+=== PART 1: TRIP DISRUPTION AGENT ORCHESTRATION ===
+(Demonstrates DAG decomposition, algorithm routing, and Self-Refine)
+
+$ python -m planning.agent.rebooking_planning_agent --case sample_disruption_maria_ostrowski
+
+============================================================
+🌍 Wanderpath Rebooking Agent Initiated
+🚨 Disruption Case: sample_disruption_maria_ostrowski
+============================================================
+
+Step 1: Decomposing task into DAG...
+Generated 3 sub-tasks.
+
+--- Executing Sub-task 1 ---
+Description: Format final ticket confirmation output
+Routed to Algorithm: Plan-and-Solve
+Result: Reflection: Action needed adjustment based on stag...
+Applying Self-Refine critique...
+Self-Refine PASS
+------------------------------
+
+--- Executing Sub-task 2 ---
+Description: Choose the best rebooking schedule option among alternatives
+Routed to Algorithm: Tree of Thoughts
+Selected Path: Same-day flight rebooking via partner airline... (Score: 0.85)
+------------------------------
+
+--- Executing Sub-task 3 ---
+Description: Execute final rebooking and downstream updates
+Routed to Algorithm: LATS
+
+[Staging Validator] Evaluating state: Flight rebooked for next_day, hotel confirmed, client notifi...      
+Final Grounded Execution Success: True
+Environment Validator Score: 1.0
+------------------------------
+
+✅ Disruption Case sample_disruption_maria_ostrowski Successfully Resolved!
+Total LLM Calls: 14 | Total Tokens: 1808
+============================================================
+
+
+=== PART 2: REFLEXION & GROUNDED ENVIRONMENT FEEDBACK ===
+(Demonstrates multi-trial learning and grounded validator catching constraints)
+
+$ python -m planning.algorithms_glue.reflexion --case passport_conflict --smoke
+
+--- Running Reflexion Smoke Test ---
+Case: passport_conflict
+
+[Staging Validator] Evaluating state: Reflection: Action needed adjustment based on staging rules....      
+
+Success: True
+
+Best Output State:
+Reflection: Action needed adjustment based on staging rules. Rebooking verified successfully.
+
+Pass/Fail: PASS
+LLM Calls: 1
+Tokens Used: 105
+Latency: 0.79 ms
+----------------------------------------
+
+
+
+
 ==================================================================
 🚀 STARTING MASTER MCP PROTOCOL SMOKE TEST (ALL 7 CONCERNS)
 ==================================================================
@@ -52,3 +117,8 @@
 ==================================================================
 🎉 MASTER LAB 2 SMOKE TEST PASSED FLAWLESSLY!
 ==================================================================
+
+
+
+
+
