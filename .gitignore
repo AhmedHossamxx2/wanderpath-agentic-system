@@ -84,4 +84,4 @@ Thumbs.db
 *.log
 logs/
 *.tmp
-*.bak
+*.bak.env
