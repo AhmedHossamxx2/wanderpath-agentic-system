@@ -62,3 +62,39 @@ class WanderpathVectorStore:
                 })
 
         return formatted_results
+
+    def add_document(self, doc_id: str, document: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+        """Dynamically adds or updates a single document in the vector store."""
+        self.collection.upsert(
+            ids=[doc_id],
+            documents=[document],
+            metadatas=[metadata or {}]
+        )
+
+    def delete_document(self, doc_id: str) -> None:
+        """Dynamically removes a document from the vector store by ID."""
+        self.collection.delete(ids=[doc_id])
+
+    def list_documents(self) -> List[Dict[str, Any]]:
+        """Returns all documents currently indexed in the vector store."""
+        data = self.collection.get()
+        docs = []
+        if data and data.get("ids"):
+            for i, d_id in enumerate(data["ids"]):
+                docs.append({
+                    "id": d_id,
+                    "document": data["documents"][i] if data.get("documents") else "",
+                    "metadata": data["metadatas"][i] if data.get("metadatas") else {},
+                })
+        return docs
+
+    def get_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
+        """Fetches a specific document by ID."""
+        data = self.collection.get(ids=[doc_id])
+        if data and data.get("ids") and len(data["ids"]) > 0:
+            return {
+                "id": data["ids"][0],
+                "document": data["documents"][0] if data.get("documents") else "",
+                "metadata": data["metadatas"][0] if data.get("metadatas") else {},
+            }
+        return None

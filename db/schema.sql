@@ -112,3 +112,56 @@ CREATE TABLE payments (
     -- Defensive constraint based on DBML note
     CHECK (payment_status IN ('pending', 'completed', 'refunded'))
 );
+
+-- ============================================================================
+-- FINAL PROJECT STATE GRAPH PERSISTENCE & RECOVERY SCHEMAS
+-- ============================================================================
+
+-- Table: state_checkpoints (Durable Checkpoint Storage for Crash-and-Resume)
+CREATE TABLE IF NOT EXISTS state_checkpoints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    thread_id VARCHAR NOT NULL,
+    checkpoint_id VARCHAR UNIQUE NOT NULL,
+    parent_checkpoint_id VARCHAR,
+    graph_name VARCHAR NOT NULL,
+    current_node VARCHAR NOT NULL,
+    state_data TEXT NOT NULL, -- JSON serialized graph state
+    step_number INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table: hitl_tasks (Expected Human-in-the-Loop Escalations)
+CREATE TABLE IF NOT EXISTS hitl_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id VARCHAR UNIQUE NOT NULL,
+    thread_id VARCHAR NOT NULL,
+    graph_name VARCHAR NOT NULL,
+    node_name VARCHAR NOT NULL,
+    status VARCHAR NOT NULL DEFAULT 'PENDING',
+    reason VARCHAR NOT NULL,
+    threshold_info VARCHAR,
+    payload TEXT, -- JSON contextual snapshot
+    admin_decision VARCHAR, -- APPROVED / REJECTED
+    admin_notes TEXT,
+    resolved_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'))
+);
+
+-- Table: failure_tickets (Unplanned Mid-Node Runtime Failures & Recovery)
+CREATE TABLE IF NOT EXISTS failure_tickets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id VARCHAR UNIQUE NOT NULL,
+    thread_id VARCHAR NOT NULL,
+    graph_name VARCHAR NOT NULL,
+    failed_node VARCHAR NOT NULL,
+    status VARCHAR NOT NULL DEFAULT 'OPEN',
+    error_message TEXT NOT NULL,
+    error_traceback TEXT,
+    checkpoint_id VARCHAR,
+    state_data TEXT, -- JSON state snapshot at moment of crash
+    resolution_notes TEXT,
+    resolved_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CHECK (status IN ('OPEN', 'INVESTIGATING', 'RESOLVED', 'ABORTED'))
+);

@@ -2,6 +2,9 @@
 PRAGMA foreign_keys = ON;
 
 -- Clear existing data for a clean reset
+DELETE FROM failure_tickets;
+DELETE FROM hitl_tasks;
+DELETE FROM state_checkpoints;
 DELETE FROM payments;
 DELETE FROM bookings;
 DELETE FROM itineraries;
@@ -108,3 +111,22 @@ INSERT INTO payments (id, itinerary_id, amount, payment_status, payment_method) 
 (3, 3, 5900.00, 'pending', 'bank_transfer'),
 (4, 4, 3300.00, 'completed', 'credit_card'),
 (5, 5, 800.00, 'refunded', 'credit_card');
+
+-- ============================================================================
+-- 9. STATE CHECKPOINTS (Sample Checkpoint Traces for Recovery Testing)
+-- ============================================================================
+INSERT INTO state_checkpoints (id, thread_id, checkpoint_id, parent_checkpoint_id, graph_name, current_node, state_data, step_number) VALUES
+(1, 'thread-visa-001', 'chk-visa-step1', NULL, 'visa_processing_graph', 'decompose_requirements', '{"client_id": 2, "destination": "Japan", "visa_type": "tourist", "completed_steps": ["decompose_requirements"]}', 1),
+(2, 'thread-dispute-001', 'chk-dispute-step2', 'chk-dispute-step1', 'supplier_dispute_graph', 'tree_of_thoughts_appeal', '{"booking_id": 3, "carrier": "PacificFly", "amount_disputed": 450.00, "selected_strategy": "EU261_delay"}', 2);
+
+-- ============================================================================
+-- 10. HITL TASKS (Sample Expected Escalation for Admin Platform Verification)
+-- ============================================================================
+INSERT INTO hitl_tasks (id, task_id, thread_id, graph_name, node_name, status, reason, threshold_info, payload) VALUES
+(1, 'hitl-task-001', 'thread-medevac-001', 'medevac_repatriation_graph', 'physician_charter_authorization', 'PENDING', 'Irreversible Medevac Charter Dispatch requires Senior Physician sign-off', 'Guarantee amount: $12,500.00 (Threshold > $5,000.00)', '{"patient": "Elena Rostova", "origin": "Bali (DPS)", "destination": "Paris (CDG)", "charter_quote": 12500.00, "acuity": "CRITICAL"}');
+
+-- ============================================================================
+-- 11. FAILURE TICKETS (Sample Unplanned Failure for Admin Platform Verification)
+-- ============================================================================
+INSERT INTO failure_tickets (id, ticket_id, thread_id, graph_name, failed_node, status, error_message, error_traceback, checkpoint_id, state_data) VALUES
+(1, 'ticket-err-001', 'thread-visa-002', 'visa_processing_graph', 'awaiting_embassy_webhook', 'OPEN', 'Embassy Webhook Gateway 504 Gateway Timeout during biometrics verification', 'Traceback (most recent call last):\n  File "visa_graph.py", line 48, in check_embassy_status\n    raise TimeoutError("Embassy Webhook Gateway 504 Gateway Timeout")', 'chk-visa-step1', '{"client_id": 3, "destination": "Schengen", "status": "stalled_webhook"}');

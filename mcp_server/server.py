@@ -1,22 +1,110 @@
 import argparse
 import asyncio
+import json
 import pathlib
+from typing import Any, Callable, Dict, List, Optional
 import mcp.types as types
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.server.sse import SseServerTransport
-from starlette.applications import Starlette
-from starlette.requests import Request
-from starlette.routing import Route, Mount
 import uvicorn
 
 # Initialize MCP Server
 app = Server("WanderpathTravelAgent")
 
 # ============================================================================
-# SESSION STATE & RBAC
+# SESSION STATE, RBAC & DYNAMIC TOOL REGISTRY
 # ============================================================================
 CURRENT_ROLE = "junior_agent"  # junior_agent | senior_manager
+
+# Dynamic Tools Registry: maps tool_name -> dict(tool=types.Tool, handler=callable, enabled=bool, is_dynamic=bool)
+DYNAMIC_TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {}
+TOOL_ENABLED_STATUS: Dict[str, bool] = {}
+
+def register_dynamic_tool(
+    name: str,
+    description: str,
+    input_schema: dict,
+    handler: Optional[Callable] = None,
+    enabled: bool = True,
+) -> None:
+    """Registers a tool at runtime without redeploying the server."""
+    tool_def = types.Tool(
+        name=name,
+        description=description,
+        inputSchema=input_schema,
+    )
+    DYNAMIC_TOOL_REGISTRY[name] = {
+        "tool": tool_def,
+        "handler": handler,
+        "enabled": enabled,
+        "is_dynamic": True,
+    }
+    TOOL_ENABLED_STATUS[name] = enabled
+
+
+def deregister_dynamic_tool(name: str) -> bool:
+    """Removes a dynamic tool from the registry."""
+    if name in DYNAMIC_TOOL_REGISTRY and DYNAMIC_TOOL_REGISTRY[name].get("is_dynamic"):
+        del DYNAMIC_TOOL_REGISTRY[name]
+        TOOL_ENABLED_STATUS.pop(name, None)
+        return True
+    return False
+
+
+def set_tool_enabled(name: str, enabled: bool) -> bool:
+    """Enables or disables any tool (base or dynamic) at runtime."""
+    TOOL_ENABLED_STATUS[name] = enabled
+    if name in DYNAMIC_TOOL_REGISTRY:
+        DYNAMIC_TOOL_REGISTRY[name]["enabled"] = enabled
+    return True
+
+
+def get_all_registered_tools() -> List[Dict[str, Any]]:
+    """Returns metadata for all available tools and their current status."""
+    tools_info = []
+    
+    # Base tools info
+    base_tools = [
+        {"name": "get_itinerary_details", "description": "Fetch travel itinerary details by ID.", "is_dynamic": False, "role_required": "junior_agent"},
+        {"name": "authenticate_manager", "description": "Authenticate as a Senior Manager.", "is_dynamic": False, "role_required": "junior_agent"},
+        {"name": "cancel_booking", "description": "Cancel a flight or hotel booking by ID. Triggers elicitation if non-refundable.", "is_dynamic": False, "role_required": "junior_agent"},
+        {"name": "generate_itinerary_report", "description": "Compile a comprehensive multi-city travel itinerary with progress updates.", "is_dynamic": False, "role_required": "junior_agent"},
+        {"name": "modify_booking_dates", "description": "Modify start and end dates for an existing travel booking.", "is_dynamic": False, "role_required": "senior_manager"},
+        {"name": "override_cancellation_fee", "description": "Override and waive cancellation fees on non-refundable bookings.", "is_dynamic": False, "role_required": "senior_manager"},
+        {"name": "admin_register_tool", "description": "Dynamically register a new tool at runtime.", "is_dynamic": False, "role_required": "senior_manager"},
+        {"name": "admin_toggle_tool", "description": "Dynamically enable or disable a tool at runtime.", "is_dynamic": False, "role_required": "senior_manager"},
+        {"name": "admin_list_all_tools", "description": "List all tools and their live status.", "is_dynamic": False, "role_required": "junior_agent"},
+    ]
+    for bt in base_tools:
+        bt["enabled"] = TOOL_ENABLED_STATUS.get(bt["name"], True)
+        tools_info.append(bt)
+
+    # Dynamic tools
+    for name, entry in DYNAMIC_TOOL_REGISTRY.items():
+        if entry.get("is_dynamic"):
+            t = entry["tool"]
+            tools_info.append({
+                "name": t.name,
+                "description": t.description,
+                "inputSchema": t.inputSchema,
+                "enabled": entry.get("enabled", True),
+                "is_dynamic": True,
+                "role_required": "junior_agent",
+            })
+
+    return tools_info
+
+
+async def broadcast_tool_list_changed():
+    """Notifies active client sessions that the tool list has changed."""
+    try:
+        ctx = app.request_context
+        if ctx and ctx.session:
+            await ctx.session.send_tool_list_changed()
+    except Exception:
+        pass
+
 
 # ============================================================================
 # 1. RESOURCES
@@ -82,12 +170,15 @@ async def get_prompt(name: str, arguments: dict[str, str] | None) -> types.GetPr
     raise ValueError(f"Unknown prompt: {name}")
 
 # ============================================================================
-# 3. DEFENSIVE TOOLS
+# 3. DEFENSIVE & DYNAMIC TOOLS
 # ============================================================================
 @app.list_tools()
 async def list_tools() -> list[types.Tool]:
-    tools = [
-        types.Tool(
+    tools: list[types.Tool] = []
+
+    # 1. Base Tools (Subject to TOOL_ENABLED_STATUS)
+    if TOOL_ENABLED_STATUS.get("get_itinerary_details", True):
+        tools.append(types.Tool(
             name="get_itinerary_details",
             description="Fetch travel itinerary details by ID.",
             inputSchema={
@@ -96,8 +187,10 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["itinerary_id"],
                 "additionalProperties": False,
             },
-        ),
-        types.Tool(
+        ))
+
+    if TOOL_ENABLED_STATUS.get("authenticate_manager", True):
+        tools.append(types.Tool(
             name="authenticate_manager",
             description="Authenticate as a Senior Manager to unlock administrative write tools.",
             inputSchema={
@@ -106,8 +199,10 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["passcode"],
                 "additionalProperties": False,
             },
-        ),
-        types.Tool(
+        ))
+
+    if TOOL_ENABLED_STATUS.get("cancel_booking", True):
+        tools.append(types.Tool(
             name="cancel_booking",
             description="Cancel a flight or hotel booking by ID. Triggers human elicitation if non-refundable.",
             inputSchema={
@@ -123,8 +218,10 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["booking_id", "reason"],
                 "additionalProperties": False,
             },
-        ),
-        types.Tool(
+        ))
+
+    if TOOL_ENABLED_STATUS.get("generate_itinerary_report", True):
+        tools.append(types.Tool(
             name="generate_itinerary_report",
             description="Long-running operation: Compile a comprehensive multi-city travel itinerary with progress updates.",
             inputSchema={
@@ -136,8 +233,10 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["destination", "duration_days"],
                 "additionalProperties": False,
             },
-        ),
-        types.Tool(
+        ))
+
+    if TOOL_ENABLED_STATUS.get("modify_booking_dates", True):
+        tools.append(types.Tool(
             name="modify_booking_dates",
             description="[DEFENSIVE WRITE TOOL] Modify start and end dates for an existing travel booking.",
             inputSchema={
@@ -150,12 +249,12 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["booking_id", "start_date", "end_date"],
                 "additionalProperties": False,
             },
-        ),
-    ]
+        ))
 
+    # Privileged Base Tools
     if CURRENT_ROLE == "senior_manager":
-        tools.append(
-            types.Tool(
+        if TOOL_ENABLED_STATUS.get("override_cancellation_fee", True):
+            tools.append(types.Tool(
                 name="override_cancellation_fee",
                 description="[PRIVILEGED] Override and waive cancellation fees on non-refundable bookings.",
                 inputSchema={
@@ -167,8 +266,54 @@ async def list_tools() -> list[types.Tool]:
                     "required": ["booking_id", "waived_amount"],
                     "additionalProperties": False,
                 },
-            )
-        )
+            ))
+        
+        if TOOL_ENABLED_STATUS.get("admin_register_tool", True):
+            tools.append(types.Tool(
+                name="admin_register_tool",
+                description="[ADMIN] Dynamically register a new tool definition at runtime.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "description": {"type": "string"},
+                        "input_schema": {"type": "object"},
+                    },
+                    "required": ["name", "description", "input_schema"],
+                    "additionalProperties": False,
+                },
+            ))
+
+        if TOOL_ENABLED_STATUS.get("admin_toggle_tool", True):
+            tools.append(types.Tool(
+                name="admin_toggle_tool",
+                description="[ADMIN] Dynamically enable or disable a tool at runtime.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "enabled": {"type": "boolean"},
+                    },
+                    "required": ["name", "enabled"],
+                    "additionalProperties": False,
+                },
+            ))
+
+    if TOOL_ENABLED_STATUS.get("admin_list_all_tools", True):
+        tools.append(types.Tool(
+            name="admin_list_all_tools",
+            description="List all available tools and their live enabled/disabled status.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        ))
+
+    # 2. Dynamic Tools from Registry
+    for name, entry in DYNAMIC_TOOL_REGISTRY.items():
+        if entry.get("enabled", True) and entry.get("is_dynamic"):
+            tools.append(entry["tool"])
 
     return tools
 
@@ -176,6 +321,11 @@ async def list_tools() -> list[types.Tool]:
 async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     global CURRENT_ROLE
 
+    # Check if tool is explicitly disabled
+    if not TOOL_ENABLED_STATUS.get(name, True):
+        return [types.TextContent(type="text", text=f"PERMISSION_DENIED: Tool '{name}' has been dynamically disabled by administrator.")]
+
+    # 1. Base Tools Handlers
     if name == "get_itinerary_details":
         it_id = arguments.get("itinerary_id")
         return [types.TextContent(type="text", text=f"Itinerary #{it_id}: Active (London Autumn Break)")]
@@ -184,12 +334,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         passcode = arguments.get("passcode")
         if passcode == "admin123":
             CURRENT_ROLE = "senior_manager"
-            try:
-                ctx = app.request_context
-                if ctx and ctx.session:
-                    await ctx.session.send_tool_list_changed()
-            except Exception:
-                pass
+            await broadcast_tool_list_changed()
             return [types.TextContent(type="text", text="Authentication successful! Senior Manager role activated.")]
         else:
             return [types.TextContent(type="text", text="Authentication failed: Invalid passcode.")]
@@ -257,12 +402,43 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         amt = arguments.get("waived_amount")
         return [types.TextContent(type="text", text=f"SUCCESS: Waived ${amt} cancellation fee for Booking #{b_id}.")]
 
-    raise ValueError(f"Unknown tool: {name}")
+    elif name == "admin_register_tool":
+        if CURRENT_ROLE != "senior_manager":
+            return [types.TextContent(type="text", text="PERMISSION_DENIED: Senior Manager authorization required to register tools.")]
+        t_name = arguments.get("name")
+        t_desc = arguments.get("description")
+        t_schema = arguments.get("input_schema", {})
+        register_dynamic_tool(t_name, t_desc, t_schema, enabled=True)
+        await broadcast_tool_list_changed()
+        return [types.TextContent(type="text", text=f"SUCCESS: Dynamically registered tool '{t_name}'. Tool list updated.")]
 
-# [Keep all your existing code down to the run_stdio block]
-# Ensure these imports are at the top of your file:
-# from starlette.requests import Request
-# from starlette.routing import Route, Mount
+    elif name == "admin_toggle_tool":
+        if CURRENT_ROLE != "senior_manager":
+            return [types.TextContent(type="text", text="PERMISSION_DENIED: Senior Manager authorization required to toggle tools.")]
+        t_name = arguments.get("name")
+        t_enabled = arguments.get("enabled", True)
+        set_tool_enabled(t_name, t_enabled)
+        await broadcast_tool_list_changed()
+        status_str = "ENABLED" if t_enabled else "DISABLED"
+        return [types.TextContent(type="text", text=f"SUCCESS: Tool '{t_name}' is now {status_str}. Tool list updated.")]
+
+    elif name == "admin_list_all_tools":
+        tools_data = get_all_registered_tools()
+        return [types.TextContent(type="text", text=json.dumps(tools_data, indent=2))]
+
+    # 2. Dynamic Tool Execution
+    if name in DYNAMIC_TOOL_REGISTRY:
+        entry = DYNAMIC_TOOL_REGISTRY[name]
+        handler = entry.get("handler")
+        if handler:
+            if asyncio.iscoroutinefunction(handler):
+                result = await handler(arguments)
+            else:
+                result = handler(arguments)
+            return [types.TextContent(type="text", text=str(result))]
+        return [types.TextContent(type="text", text=f"SUCCESS (DYNAMIC TOOL): Executed '{name}' with arguments: {arguments}")]
+
+    raise ValueError(f"Unknown tool: {name}")
 
 # ============================================================================
 # DUAL TRANSPORT RUNNER (SSE / HTTP vs STDIO)
@@ -274,15 +450,10 @@ async def run_stdio():
         await app.run(read_stream, write_stream, init_options)
 
 def run_sse(host: str = "0.0.0.0", port: int = 8000):
-    import uvicorn
-    from mcp.server.sse import SseServerTransport
-
     print(f"🌐 Starting MCP Server over Streamable HTTP / SSE transport on http://{host}:{port}/sse")
     
-    # Initialize the SSE transport pointing to /messages
     sse_transport = SseServerTransport("/messages")
 
-    # A pure, lightweight ASGI application (Bypasses Starlette entirely to prevent crashes)
     async def asgi_app(scope, receive, send):
         if scope["type"] == "lifespan":
             while True:
@@ -294,26 +465,63 @@ def run_sse(host: str = "0.0.0.0", port: int = 8000):
                     break
         elif scope["type"] == "http":
             path = scope.get("path", "")
-            if path == "/sse":
-                # Safely bind the read/write streams
+            method = scope.get("method", "GET")
+
+            # Platform REST Endpoints for Tool Management
+            if path == "/api/tools" and method == "GET":
+                tools_data = get_all_registered_tools()
+                body = json.dumps({"status": "success", "tools": tools_data}).encode("utf-8")
+                await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
+                await send({"type": "http.response.body", "body": body})
+                return
+
+            elif path == "/api/tools/toggle" and method == "POST":
+                body_bytes = b""
+                while True:
+                    chunk = await receive()
+                    body_bytes += chunk.get("body", b"")
+                    if not chunk.get("more_body", False):
+                        break
+                data = json.loads(body_bytes.decode("utf-8"))
+                tool_name = data.get("name")
+                enabled = data.get("enabled", True)
+                set_tool_enabled(tool_name, enabled)
+                await broadcast_tool_list_changed()
+                res = json.dumps({"status": "success", "tool": tool_name, "enabled": enabled}).encode("utf-8")
+                await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
+                await send({"type": "http.response.body", "body": res})
+                return
+
+            elif path == "/api/tools/register" and method == "POST":
+                body_bytes = b""
+                while True:
+                    chunk = await receive()
+                    body_bytes += chunk.get("body", b"")
+                    if not chunk.get("more_body", False):
+                        break
+                data = json.loads(body_bytes.decode("utf-8"))
+                register_dynamic_tool(data["name"], data["description"], data.get("input_schema", {}))
+                await broadcast_tool_list_changed()
+                res = json.dumps({"status": "success", "registered": data["name"]}).encode("utf-8")
+                await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
+                await send({"type": "http.response.body", "body": res})
+                return
+
+            # Core MCP SSE routes
+            elif path == "/sse":
                 async with sse_transport.connect_sse(scope, receive, send) as (read_stream, write_stream):
                     init_options = app.create_initialization_options()
                     await app.run(read_stream, write_stream, init_options)
             elif path == "/messages":
-                # Safely handle the POST JSON-RPC payload
                 await sse_transport.handle_post_message(scope, receive, send)
             else:
-                # 404 for unmatched routes
                 await send({"type": "http.response.start", "status": 404, "headers": []})
                 await send({"type": "http.response.body", "body": b""})
 
-    # Run the raw ASGI app via Uvicorn
     uvicorn.run(asgi_app, host=host, port=port, log_level="info")
 
 if __name__ == "__main__":
-    import argparse
     parser = argparse.ArgumentParser(description="Wanderpath Travel Agent MCP Server")
-    # Change default from "sse" to "stdio"
     parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio", help="Transport mechanism (default: stdio)")
     parser.add_argument("--port", type=int, default=8000, help="Port for SSE transport")
     args = parser.parse_args()
