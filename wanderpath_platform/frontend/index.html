@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wanderpath Travel Agency — Autonomous Agent Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-3.5 flex items-center justify-between shadow-lg">
+    <div class="flex items-center space-x-3">
+      <div class="bg-gradient-to-tr from-blue-600 to-indigo-500 p-2 rounded-xl text-white shadow-md">
+        <i data-lucide="plane-takeoff" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+          Wanderpath Travel <span class="text-xs font-semibold px-2 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">Autonomous Agents v3.0</span>
+        </h1>
+        <p class="text-xs text-slate-400">Model Context Protocol • Stateful Graphs • Human-in-the-Loop • Failure Recovery</p>
+      </div>
+    </div>
+
+    <!-- NAVIGATION TABS -->
+    <div class="flex items-center bg-slate-950/70 p-1 rounded-xl border border-slate-800">
+      <button onclick="switchView('chat')" id="nav-chat" class="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow transition-all">
+        <i data-lucide="message-square" class="w-4 h-4"></i> User Chat Portal
+      </button>
+      <button onclick="switchView('admin')" id="nav-admin" class="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all">
+        <i data-lucide="shield-alert" class="w-4 h-4"></i> Admin Operations Center
+        <span id="hitl-badge" class="hidden px-1.5 py-0.2 bg-amber-500 text-slate-950 font-bold rounded-full text-[10px]">0</span>
+      </button>
+    </div>
+
+    <div class="flex items-center gap-3 text-xs text-slate-400">
+      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> MCP Server Online (Port 8000)</span>
+      <span class="border-l border-slate-800 pl-3">Durable SQLite Active</span>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <main class="flex-1 flex overflow-hidden">
+
+    <!-- ===================================================================== -->
+    <!-- 1. USER CHAT PORTAL -->
+    <!-- ===================================================================== -->
+    <section id="view-chat" class="flex-1 flex overflow-hidden">
+      <!-- SIDEBAR: AGENT SWITCHER -->
+      <aside class="w-80 bg-slate-900/90 border-r border-slate-800 p-4 flex flex-col justify-between">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Active Agent</span>
+            <span class="text-[10px] text-blue-400 bg-blue-950/50 px-2 py-0.5 rounded border border-blue-800">5 Live Agents</span>
+          </div>
+
+          <div class="space-y-2">
+            <!-- Stateful Agent 1: Visa -->
+            <button onclick="selectAgent('visa_agent')" id="btn-agent-visa_agent" class="agent-btn w-full text-left p-3 rounded-xl border border-blue-500/40 bg-blue-950/30 text-white flex items-start gap-3 transition-all hover:bg-slate-800/80">
+              <div class="p-2 bg-blue-600/20 text-blue-400 rounded-lg"><i data-lucide="file-check-2" class="w-5 h-5"></i></div>
+              <div>
+                <div class="text-xs font-semibold flex items-center gap-1.5">Visa & Consular Agent <span class="text-[9px] px-1 bg-emerald-950 text-emerald-400 rounded border border-emerald-800">State Graph</span></div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Task Decomposition + RAG • Diplomatic Milestones & Fee Approvals</p>
+              </div>
+            </button>
+
+            <!-- Stateful Agent 2: Dispute -->
+            <button onclick="selectAgent('dispute_agent')" id="btn-agent-dispute_agent" class="agent-btn w-full text-left p-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-300 flex items-start gap-3 transition-all hover:bg-slate-800/80">
+              <div class="p-2 bg-purple-600/20 text-purple-400 rounded-lg"><i data-lucide="scale" class="w-5 h-5"></i></div>
+              <div>
+                <div class="text-xs font-semibold flex items-center gap-1.5">Supplier Dispute Agent <span class="text-[9px] px-1 bg-emerald-950 text-emerald-400 rounded border border-emerald-800">State Graph</span></div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Tree of Thoughts + ReAct • 7-Day Airline Windows & Arbitration</p>
+              </div>
+            </button>
+
+            <!-- Stateful Agent 3: Medevac -->
+            <button onclick="selectAgent('medevac_agent')" id="btn-agent-medevac_agent" class="agent-btn w-full text-left p-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-300 flex items-start gap-3 transition-all hover:bg-slate-800/80">
+              <div class="p-2 bg-rose-600/20 text-rose-400 rounded-lg"><i data-lucide="ambulance" class="w-5 h-5"></i></div>
+              <div>
+                <div class="text-xs font-semibold flex items-center gap-1.5">VIP Medical Evac Agent <span class="text-[9px] px-1 bg-emerald-950 text-emerald-400 rounded border border-emerald-800">State Graph</span></div>
+                <p class="text-[11px] text-slate-400 mt-0.5">LATS Route Search + ReAct • Air Ambulance Dispatch & ICU Beds</p>
+              </div>
+            </button>
+
+            <!-- Lab 3 Planning Agent -->
+            <button onclick="selectAgent('planning_agent')" id="btn-agent-planning_agent" class="agent-btn w-full text-left p-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-300 flex items-start gap-3 transition-all hover:bg-slate-800/80">
+              <div class="p-2 bg-amber-600/20 text-amber-400 rounded-lg"><i data-lucide="git-merge" class="w-5 h-5"></i></div>
+              <div>
+                <div class="text-xs font-semibold">Trip Disruption Planner</div>
+                <p class="text-[11px] text-slate-400 mt-0.5">DAG Dynamic Replanning • Plan-and-Solve & ToT Routing</p>
+              </div>
+            </button>
+
+            <!-- Lab 2 Memory / RAG Agent -->
+            <button onclick="selectAgent('memory_rag_agent')" id="btn-agent-memory_rag_agent" class="agent-btn w-full text-left p-3 rounded-xl border border-slate-800 bg-slate-950/40 text-slate-300 flex items-start gap-3 transition-all hover:bg-slate-800/80">
+              <div class="p-2 bg-cyan-600/20 text-cyan-400 rounded-lg"><i data-lucide="database" class="w-5 h-5"></i></div>
+              <div>
+                <div class="text-xs font-semibold">Memory & Hybrid RAG Agent</div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Scratchpad + Semantic Store + Hybrid BM25 & Self-RAG</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- THREAD & PERSISTENCE INFO -->
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-[11px] space-y-1.5">
+          <div class="flex items-center justify-between text-slate-400">
+            <span>Thread Session:</span>
+            <button onclick="resetThread()" class="text-blue-400 hover:underline">New Thread</button>
+          </div>
+          <p id="lbl-thread-id" class="font-mono text-slate-300 font-semibold truncate">thread-live-001</p>
+        </div>
+      </aside>
+
+      <!-- CHAT CONVERSATION AREA -->
+      <section class="flex-1 flex flex-col bg-slate-950">
+        <!-- AGENT BANNER -->
+        <div class="px-6 py-3 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <h2 id="agent-banner-title" class="text-sm font-bold text-white">Visa & Consular Processing Agent</h2>
+            <span id="agent-state-badge" class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">READY</span>
+          </div>
+          <!-- PRESET PROMPTS -->
+          <div class="flex items-center gap-2 text-xs">
+            <span class="text-slate-500 text-[11px]">Quick Scenarios:</span>
+            <button onclick="sendPreset('emergency_visa')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 text-[11px]">Emergency Schengen Visa</button>
+            <button onclick="sendPreset('strike_dispute')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 text-[11px]">PacificFly Strike Claim</button>
+            <button onclick="sendPreset('bali_medevac')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 text-[11px]">Bali Medevac Evac</button>
+          </div>
+        </div>
+
+        <!-- MESSAGES FEED -->
+        <div id="chat-feed" class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+          <!-- Welcome Message -->
+          <div class="flex items-start gap-3 max-w-2xl">
+            <div class="p-2 bg-blue-600/20 text-blue-400 rounded-lg shrink-0 mt-0.5"><i data-lucide="bot" class="w-4 h-4"></i></div>
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-xs space-y-2 text-slate-200">
+              <p class="font-semibold text-blue-400">Welcome to Wanderpath Travel Autonomous Agent Portal.</p>
+              <p>I am your stateful travel operations assistant. You can request multi-step visa processing, initiate carrier contract dispute reconciliations, dispatch emergency medevac charters, plan disrupted itineraries, or query our knowledge base.</p>
+              <p class="text-slate-400 text-[11px]">All state graph executions are checkpointed to SQLite after every node transition and will gracefully pause on HITL approval conditions or failure tickets.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- INPUT BOX -->
+        <div class="p-4 border-t border-slate-800 bg-slate-900/60">
+          <form onsubmit="handleChatSubmit(event)" class="flex items-center gap-3 max-w-4xl mx-auto">
+            <input type="text" id="chat-input" placeholder="Type your request or select a preset scenario above..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
+            <button type="submit" id="chat-submit-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-3 rounded-xl text-xs flex items-center gap-2 shadow-md transition-all">
+              <span>Send</span> <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            </button>
+          </form>
+        </div>
+      </section>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- 2. ADMIN OPERATIONS CENTER -->
+    <!-- ===================================================================== -->
+    <section id="view-admin" class="hidden flex-1 flex flex-col bg-slate-950 overflow-hidden">
+      <!-- SUB-NAVIGATION BAR -->
+      <nav class="bg-slate-900/80 border-b border-slate-800 px-6 py-2.5 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <button onclick="switchAdminTab('tools')" id="tab-tools" class="admin-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600/20 text-blue-400 border border-blue-500/30">
+            <i data-lucide="wrench" class="w-3.5 h-3.5 inline mr-1"></i> MCP Tools Registry
+          </button>
+          <button onclick="switchAdminTab('rag')" id="tab-rag" class="admin-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">
+            <i data-lucide="book-open" class="w-3.5 h-3.5 inline mr-1"></i> RAG Knowledge Base
+          </button>
+          <button onclick="switchAdminTab('hitl')" id="tab-hitl" class="admin-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">
+            <i data-lucide="user-check" class="w-3.5 h-3.5 inline mr-1"></i> HITL Tasks
+            <span id="tab-hitl-count" class="ml-1 px-1.5 py-0.2 bg-amber-500 text-slate-950 font-bold rounded-full text-[10px]">0</span>
+          </button>
+          <button onclick="switchAdminTab('tickets')" id="tab-tickets" class="admin-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">
+            <i data-lucide="alert-octagon" class="w-3.5 h-3.5 inline mr-1"></i> Failure Tickets
+            <span id="tab-tickets-count" class="ml-1 px-1.5 py-0.2 bg-rose-500 text-white font-bold rounded-full text-[10px]">0</span>
+          </button>
+          <button onclick="switchAdminTab('checkpoints')" id="tab-checkpoints" class="admin-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">
+            <i data-lucide="layers" class="w-3.5 h-3.5 inline mr-1"></i> State Checkpoints
+          </button>
+        </div>
+        <button onclick="refreshAdminData()" class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Data
+        </button>
+      </nav>
+
+      <!-- ADMIN TAB PANELS CONTAINER -->
+      <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+
+        <!-- TAB 1: MCP TOOL REGISTRY -->
+        <div id="panel-tools" class="space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white">Live MCP Tool Registry</h3>
+              <p class="text-xs text-slate-400">Dynamically add, remove, enable, or disable tools at runtime. Toggling reaches the live MCP server immediately.</p>
+            </div>
+            <button onclick="openRegisterToolModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 shadow">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i> Register Dynamic Tool
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="tools-grid">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- TAB 2: RAG KNOWLEDGE BASE -->
+        <div id="panel-rag" class="hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white">ChromaDB Unstructured Knowledge Base</h3>
+              <p class="text-xs text-slate-400">Ingest or remove destination policies. Changes reflect immediately in RAG retrieval.</p>
+            </div>
+            <button onclick="openAddDocModal()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 shadow">
+              <i data-lucide="upload" class="w-4 h-4"></i> Ingest New Policy Document
+            </button>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950/70 text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th class="p-3.5">Document ID</th>
+                  <th class="p-3.5">Content Preview</th>
+                  <th class="p-3.5">Metadata Payload</th>
+                  <th class="p-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="rag-docs-table" class="divide-y divide-slate-800/60 text-slate-300">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 3: HITL TASKS -->
+        <div id="panel-hitl" class="hidden space-y-6">
+          <div>
+            <h3 class="text-sm font-bold text-white">Human-in-the-Loop (HITL) Resolution Center</h3>
+            <p class="text-xs text-slate-400">Expected business policy pauses (fee thresholds, indemnity waivers, irreversible dispatch). Approve or reject to resume runs.</p>
+          </div>
+          <div class="space-y-4" id="hitl-tasks-list">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- TAB 4: FAILURE TICKETS -->
+        <div id="panel-tickets" class="hidden space-y-6">
+          <div>
+            <h3 class="text-sm font-bold text-white">Failure Ticket Investigation & Recovery Center</h3>
+            <p class="text-xs text-slate-400">Unplanned runtime crashes (tool 500s, schema errors). Inspect stack trace, patch state, and resume mid-node without restarting.</p>
+          </div>
+          <div class="space-y-4" id="failure-tickets-list">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- TAB 5: STATE CHECKPOINTS -->
+        <div id="panel-checkpoints" class="hidden space-y-6">
+          <div>
+            <h3 class="text-sm font-bold text-white">Durable SQLite Checkpoints Timeline</h3>
+            <p class="text-xs text-slate-400">Every state graph transition persisted atomically to disk with full JSON recovery payloads.</p>
+          </div>
+          <div class="space-y-3" id="checkpoints-timeline">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: REGISTER DYNAMIC TOOL -->
+  <div id="modal-register-tool" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4 text-xs">
+      <h3 class="text-sm font-bold text-white flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-blue-400"></i> Register Dynamic MCP Tool</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="text-[11px] text-slate-400 font-semibold block mb-1">Tool Name</label>
+          <input id="new-tool-name" type="text" placeholder="e.g., custom_embassy_courier" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+        </div>
+        <div>
+          <label class="text-[11px] text-slate-400 font-semibold block mb-1">Description</label>
+          <textarea id="new-tool-desc" rows="2" placeholder="Describe the tool's purpose..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white"></textarea>
+        </div>
+        <div>
+          <label class="text-[11px] text-slate-400 font-semibold block mb-1">Input Schema (JSON)</label>
+          <textarea id="new-tool-schema" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono text-[11px]">{"type": "object", "properties": {"tracking_id": {"type": "string"}}, "required": ["tracking_id"]}</textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="closeModals()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">Cancel</button>
+        <button onclick="submitRegisterTool()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg">Register Tool</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD RAG DOCUMENT -->
+  <div id="modal-add-doc" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4 text-xs">
+      <h3 class="text-sm font-bold text-white flex items-center gap-2"><i data-lucide="upload" class="w-4 h-4 text-indigo-400"></i> Ingest New Policy Document</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="text-[11px] text-slate-400 font-semibold block mb-1">Document ID</label>
+          <input id="new-doc-id" type="text" placeholder="e.g., policy_morocco_fasttrack" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+        </div>
+        <div>
+          <label class="text-[11px] text-slate-400 font-semibold block mb-1">Policy Content Text</label>
+          <textarea id="new-doc-content" rows="4" placeholder="Enter policy text..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white"></textarea>
+        </div>
+        <div>
+          <label class="text-[11px] text-slate-400 font-semibold block mb-1">Metadata (JSON)</label>
+          <input id="new-doc-meta" type="text" value='{"country": "Morocco", "category": "visa"}' class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono text-[11px]">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="closeModals()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">Cancel</button>
+        <button onclick="submitAddRAGDoc()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg">Add to ChromaDB</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT CLIENT CONTROLLER -->
+  <script>
+    let currentAgent = "visa_agent";
+    let currentThread = "thread-live-" + Math.random().toString(36).substring(2, 7);
+    const API_BASE = window.location.origin;
+
+    document.getElementById("lbl-thread-id").innerText = currentThread;
+
+    function switchView(view) {
+      document.getElementById("view-chat").classList.toggle("hidden", view !== 'chat');
+      document.getElementById("view-admin").classList.toggle("hidden", view !== 'admin');
+      document.getElementById("nav-chat").className = view === 'chat' ? "flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow" : "flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white";
+      document.getElementById("nav-admin").className = view === 'admin' ? "flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow" : "flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white";
+      if (view === 'admin') refreshAdminData();
+    }
+
+    function switchAdminTab(tab) {
+      ['tools', 'rag', 'hitl', 'tickets', 'checkpoints'].forEach(t => {
+        document.getElementById(`panel-${t}`).classList.toggle("hidden", t !== tab);
+        document.getElementById(`tab-${t}`).className = t === tab ? "admin-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600/20 text-blue-400 border border-blue-500/30" : "admin-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white";
+      });
+    }
+
+    function selectAgent(agentId) {
+      currentAgent = agentId;
+      document.querySelectorAll(".agent-btn").forEach(btn => {
+        btn.classList.remove("border-blue-500/40", "bg-blue-950/30", "text-white");
+        btn.classList.add("border-slate-800", "bg-slate-950/40", "text-slate-300");
+      });
+      document.getElementById(`btn-agent-${agentId}`).classList.add("border-blue-500/40", "bg-blue-950/30", "text-white");
+      
+      const titles = {
+        visa_agent: "Visa & Consular Processing Agent (State Graph)",
+        dispute_agent: "Supplier Contract Dispute & Chargeback Agent (State Graph)",
+        medevac_agent: "VIP Emergency Medical Evacuation Agent (State Graph)",
+        planning_agent: "Trip Disruption Planning Agent (DAG Planner)",
+        memory_rag_agent: "Memory & Hybrid RAG Master Agent"
+      };
+      document.getElementById("agent-banner-title").innerText = titles[agentId] || agentId;
+    }
+
+    function resetThread() {
+      currentThread = "thread-live-" + Math.random().toString(36).substring(2, 7);
+      document.getElementById("lbl-thread-id").innerText = currentThread;
+      document.getElementById("chat-feed").innerHTML = `
+        <div class="flex items-start gap-3 max-w-2xl">
+          <div class="p-2 bg-blue-600/20 text-blue-400 rounded-lg shrink-0 mt-0.5"><i data-lucide="bot" class="w-4 h-4"></i></div>
+          <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-xs space-y-2 text-slate-200">
+            <p class="font-semibold text-blue-400">New session thread initialized: <span class="font-mono text-white">${currentThread}</span></p>
+            <p>State checkpoints will persist cleanly for this thread.</p>
+          </div>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    async function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById("chat-input");
+      const msg = input.value.trim();
+      if (!msg) return;
+      input.value = "";
+
+      appendMessage("user", msg);
+      document.getElementById("chat-submit-btn").disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/chat`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ agent_id: currentAgent, message: msg, thread_id: currentThread })
+        });
+        const data = await res.json();
+        
+        // Update badge
+        const badge = document.getElementById("agent-state-badge");
+        badge.innerText = data.status || "COMPLETED";
+        if (data.status === "INTERRUPTED") {
+          badge.className = "text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-950 text-amber-400 border border-amber-800";
+        } else if (data.status === "FAILED") {
+          badge.className = "text-[10px] px-2 py-0.5 rounded-full font-semibold bg-rose-950 text-rose-400 border border-rose-800";
+        } else {
+          badge.className = "text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800";
+        }
+
+        appendMessage("agent", data.response, data.state);
+        refreshAdminData();
+      } catch (err) {
+        appendMessage("agent", "Error connecting to platform backend: " + err.message);
+      } finally {
+        document.getElementById("chat-submit-btn").disabled = false;
+      }
+    }
+
+    function appendMessage(role, text, state) {
+      const feed = document.getElementById("chat-feed");
+      const isUser = role === "user";
+      const div = document.createElement("div");
+      div.className = `flex items-start gap-3 max-w-2xl ${isUser ? 'ml-auto flex-row-reverse' : ''}`;
+      
+      div.innerHTML = `
+        <div class="p-2 ${isUser ? 'bg-blue-600 text-white' : 'bg-blue-600/20 text-blue-400'} rounded-lg shrink-0 mt-0.5">
+          <i data-lucide="${isUser ? 'user' : 'bot'}" class="w-4 h-4"></i>
+        </div>
+        <div class="${isUser ? 'bg-blue-600 text-white' : 'bg-slate-900 border border-slate-800 text-slate-200'} p-4 rounded-2xl text-xs space-y-2">
+          <p class="whitespace-pre-wrap">${text}</p>
+          ${state && state.__status__ === "INTERRUPTED" ? `<div class="mt-2 p-2 bg-amber-950/60 border border-amber-800/80 rounded-lg text-amber-300 text-[11px]">⏸️ <b>Run Paused:</b> ${state.__interrupt_reason__ || 'Awaiting action'}. Check Admin Operations Center!</div>` : ''}
+          ${state && state.__status__ === "FAILED" ? `<div class="mt-2 p-2 bg-rose-950/60 border border-rose-800/80 rounded-lg text-rose-300 text-[11px]">💥 <b>Failure Ticket Opened:</b> ${state.__failure_ticket_id__}. Inspect in Admin panel!</div>` : ''}
+        </div>
+      `;
+      feed.appendChild(div);
+      feed.scrollTop = feed.scrollHeight;
+      lucide.createIcons();
+    }
+
+    function sendPreset(type) {
+      if (type === 'emergency_visa') {
+        selectAgent('visa_agent');
+        document.getElementById('chat-input').value = "Client Liam Neeson needs expedited Schengen visa for France with emergency processing.";
+      } else if (type === 'strike_dispute') {
+        selectAgent('dispute_agent');
+        document.getElementById('chat-input').value = "PacificFly cancelled flight WP-202 due to crew strike. Demanding EU261 compensation + refund.";
+      } else if (type === 'bali_medevac') {
+        selectAgent('medevac_agent');
+        document.getElementById('chat-input').value = "Elena Rostova suffered acute spinal trauma in Bali. Requesting ICU medical evacuation charter to Singapore.";
+      }
+      document.getElementById('chat-input').focus();
+    }
+
+    // --- ADMIN DATA REFRESH ---
+    async function refreshAdminData() {
+      try {
+        // 1. Tools
+        const resTools = await fetch(`${API_BASE}/api/admin/tools`);
+        const dataTools = await resTools.json();
+        renderTools(dataTools.tools || []);
+
+        // 2. RAG Docs
+        const resRAG = await fetch(`${API_BASE}/api/admin/rag/documents`);
+        const dataRAG = await resRAG.json();
+        renderRAG(dataRAG.documents || []);
+
+        // 3. HITL Tasks
+        const resHITL = await fetch(`${API_BASE}/api/admin/hitl/tasks`);
+        const dataHITL = await resHITL.json();
+        renderHITL(dataHITL.tasks || []);
+
+        // 4. Failure Tickets
+        const resTickets = await fetch(`${API_BASE}/api/admin/tickets`);
+        const dataTickets = await resTickets.json();
+        renderTickets(dataTickets.tickets || []);
+      } catch (err) {
+        console.error("Failed to refresh admin data:", err);
+      }
+    }
+
+    function renderTools(tools) {
+      const grid = document.getElementById("tools-grid");
+      grid.innerHTML = "";
+      tools.forEach(t => {
+        const isEnabled = t.enabled !== false;
+        const card = document.createElement("div");
+        card.className = "bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between space-y-3";
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-xs font-bold text-white">${t.name}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded font-semibold ${isEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'}">${isEnabled ? 'ENABLED' : 'DISABLED'}</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">${t.description || 'No description'}</p>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-slate-800/80">
+            <span class="text-[10px] text-slate-500">${t.is_dynamic ? 'Dynamic Tool' : 'Base Tool'}</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" onchange="toggleTool('${t.name}', this.checked)" ${isEnabled ? 'checked' : ''} class="sr-only peer">
+              <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function toggleTool(toolName, enabled) {
+      await fetch(`${API_BASE}/api/admin/tools/toggle`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ tool_name: toolName, enabled: enabled })
+      });
+      refreshAdminData();
+    }
+
+    function renderRAG(docs) {
+      const tbody = document.getElementById("rag-docs-table");
+      tbody.innerHTML = "";
+      docs.forEach(d => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/30 transition-all";
+        tr.innerHTML = `
+          <td class="p-3.5 font-mono text-blue-400 font-semibold">${d.id}</td>
+          <td class="p-3.5 text-slate-300 max-w-xs truncate">${d.document}</td>
+          <td class="p-3.5"><span class="font-mono text-[10px] bg-slate-950 px-2 py-1 rounded border border-slate-800">${JSON.stringify(d.metadata)}</span></td>
+          <td class="p-3.5 text-right">
+            <button onclick="deleteRAGDoc('${d.id}')" class="text-rose-400 hover:text-rose-300 text-xs"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      lucide.createIcons();
+    }
+
+    async function deleteRAGDoc(docId) {
+      if (!confirm(`Delete policy '${docId}' from ChromaDB?`)) return;
+      await fetch(`${API_BASE}/api/admin/rag/documents/${docId}`, { method: "DELETE" });
+      refreshAdminData();
+    }
+
+    function renderHITL(tasks) {
+      const container = document.getElementById("hitl-tasks-list");
+      const pending = tasks.filter(t => t.status === "PENDING");
+      document.getElementById("hitl-badge").innerText = pending.length;
+      document.getElementById("hitl-badge").classList.toggle("hidden", pending.length === 0);
+      document.getElementById("tab-hitl-count").innerText = pending.length;
+
+      container.innerHTML = "";
+      if (tasks.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-slate-500 text-xs">No pending or historical HITL tasks recorded.</div>`;
+        return;
+      }
+
+      tasks.forEach(t => {
+        const isPending = t.status === "PENDING";
+        const card = document.createElement("div");
+        card.className = `p-4 rounded-2xl border ${isPending ? 'bg-amber-950/20 border-amber-500/40' : 'bg-slate-900 border-slate-800'} space-y-3`;
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-white font-mono">${t.task_id}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded font-semibold ${isPending ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400'}">${t.status}</span>
+              <span class="text-[11px] text-slate-400">Node: <b class="text-slate-200">${t.node_name}</b></span>
+            </div>
+            <span class="text-[10px] text-slate-500 font-mono">${t.thread_id}</span>
+          </div>
+          <p class="text-xs text-amber-300/90 font-medium">⚠️ Reason: ${t.reason}</p>
+          ${t.threshold_info ? `<div class="text-[11px] text-slate-400 bg-slate-950 p-2 rounded-lg border border-slate-800 font-mono">Condition: ${t.threshold_info}</div>` : ''}
+          ${isPending ? `
+            <div class="flex justify-end gap-2 pt-2 border-t border-amber-800/40">
+              <button onclick="resolveHITL('${t.task_id}', 'REJECTED')" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg text-xs font-semibold transition-all">Reject Task</button>
+              <button onclick="resolveHITL('${t.task_id}', 'APPROVED')" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-all">Approve & Resume Graph</button>
+            </div>
+          ` : `<div class="text-[11px] text-slate-500">Decision: <b class="text-white">${t.admin_decision}</b> | Notes: ${t.admin_notes || 'None'}</div>`}
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function resolveHITL(taskId, decision) {
+      await fetch(`${API_BASE}/api/admin/hitl/tasks/${taskId}/resolve`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ decision: decision, admin_notes: "Authorized via Platform UI" })
+      });
+      refreshAdminData();
+    }
+
+    function renderTickets(tickets) {
+      const container = document.getElementById("failure-tickets-list");
+      const open = tickets.filter(t => t.status === "OPEN");
+      document.getElementById("tab-tickets-count").innerText = open.length;
+      container.innerHTML = "";
+
+      if (tickets.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-slate-500 text-xs">No runtime failure tickets recorded. System running smoothly.</div>`;
+        return;
+      }
+
+      tickets.forEach(t => {
+        const isOpen = t.status === "OPEN" || t.status === "INVESTIGATING";
+        const card = document.createElement("div");
+        card.className = `p-4 rounded-2xl border ${isOpen ? 'bg-rose-950/20 border-rose-500/40' : 'bg-slate-900 border-slate-800'} space-y-3`;
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-white font-mono">${t.ticket_id}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded font-semibold ${isOpen ? 'bg-rose-600 text-white' : 'bg-emerald-950 text-emerald-400'}">${t.status}</span>
+              <span class="text-[11px] text-slate-400">Failed Node: <b class="text-rose-300">${t.failed_node}</b></span>
+            </div>
+            <span class="text-[10px] text-slate-500 font-mono">${t.thread_id}</span>
+          </div>
+          <p class="text-xs text-rose-300 font-medium">💥 Error: ${t.error_message}</p>
+          ${t.error_traceback ? `<pre class="text-[10px] bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-slate-400 overflow-x-auto custom-scrollbar font-mono">${t.error_traceback}</pre>` : ''}
+          ${isOpen ? `
+            <div class="pt-2 border-t border-rose-800/40 space-y-2">
+              <label class="text-[11px] text-slate-400 block font-semibold">State Patch (JSON):</label>
+              <textarea id="patch-${t.ticket_id}" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono text-[11px]">{"gds_gateway_override": "GDS-BACKUP-01"}</textarea>
+              <div class="flex justify-end gap-2">
+                <button onclick="resolveTicket('${t.ticket_id}')" class="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold shadow">Patch State & Resume Run</button>
+              </div>
+            </div>
+          ` : `<div class="text-[11px] text-slate-500">Resolution: ${t.resolution_notes}</div>`}
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function resolveTicket(ticketId) {
+      const patchText = document.getElementById(`patch-${ticketId}`).value;
+      let patch = null;
+      try { patch = JSON.parse(patchText); } catch(e) {}
+      await fetch(`${API_BASE}/api/admin/tickets/${ticketId}/resolve`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ state_patch: patch, resolution_notes: "Patched via Platform UI" })
+      });
+      refreshAdminData();
+    }
+
+    function openRegisterToolModal() { document.getElementById("modal-register-tool").classList.remove("hidden"); }
+    function openAddDocModal() { document.getElementById("modal-add-doc").classList.remove("hidden"); }
+    function closeModals() { document.querySelectorAll(".fixed").forEach(m => m.classList.add("hidden")); }
+
+    async function submitRegisterTool() {
+      const name = document.getElementById("new-tool-name").value.trim();
+      const desc = document.getElementById("new-tool-desc").value.trim();
+      const schemaText = document.getElementById("new-tool-schema").value;
+      let schema = {};
+      try { schema = JSON.parse(schemaText); } catch(e) {}
+      await fetch(`${API_BASE}/api/admin/tools/register`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ name: name, description: desc, input_schema: schema })
+      });
+      closeModals();
+      refreshAdminData();
+    }
+
+    async function submitAddRAGDoc() {
+      const id = document.getElementById("new-doc-id").value.trim();
+      const content = document.getElementById("new-doc-content").value.trim();
+      const metaText = document.getElementById("new-doc-meta").value;
+      let meta = {};
+      try { meta = JSON.parse(metaText); } catch(e) {}
+      await fetch(`${API_BASE}/api/admin/rag/documents`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ doc_id: id, content: content, metadata: meta })
+      });
+      closeModals();
+      refreshAdminData();
+    }
+
+    // Initialize Icons
+    lucide.createIcons();
+  </script>
+</body>
+</html>

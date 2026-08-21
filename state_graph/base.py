@@ -358,11 +358,30 @@ class StateGraph:
         max_steps: int = 50,
     ) -> Dict[str, Any]:
         """Synchronous convenience helper for execute()."""
-        return asyncio.run(
-            self.execute(
-                thread_id=thread_id,
-                initial_state=initial_state,
-                resume_payload=resume_payload,
-                max_steps=max_steps,
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    asyncio.run,
+                    self.execute(
+                        thread_id=thread_id,
+                        initial_state=initial_state,
+                        resume_payload=resume_payload,
+                        max_steps=max_steps,
+                    )
+                )
+                return future.result()
+        else:
+            return asyncio.run(
+                self.execute(
+                    thread_id=thread_id,
+                    initial_state=initial_state,
+                    resume_payload=resume_payload,
+                    max_steps=max_steps,
+                )
             )
-        )
