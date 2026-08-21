@@ -85,3 +85,5 @@ Thumbs.db
 logs/
 *.tmp
 *.bak.env
+
+ISSUES.md
