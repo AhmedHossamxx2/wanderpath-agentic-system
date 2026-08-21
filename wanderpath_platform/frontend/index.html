@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wanderpath Concierge — Autonomous Travel Operations Platform</title>
+  
+  <!-- Tailwind CSS & Google Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#0284c7',
+              600: '#0369a1',
+              900: '#082f49',
+              gold: '#f59e0b',
+              goldLight: '#fbbf24',
+              goldDark: '#b45309',
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 4s ease-in-out infinite',
+            'shimmer': 'shimmer 2.5s infinite linear',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-4px)' },
+            },
+            shimmer: {
+              '0%': { backgroundPosition: '-200% 0' },
+              '100%': { backgroundPosition: '200% 0' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.45);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .glass-card-active {
+      background: linear-gradient(135deg, rgba(2, 132, 199, 0.15), rgba(30, 58, 138, 0.25));
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      box-shadow: 0 0 20px rgba(2, 132, 199, 0.15);
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.6); border-radius: 9999px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.9); }
+    
+    .gold-gradient-text {
+      background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 50%, #d97706 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .cyan-gradient-text {
+      background: linear-gradient(135deg, #e0f2fe 0%, #38bdf8 50%, #0284c7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-[#070b14] text-slate-100 flex flex-col h-screen overflow-hidden selection:bg-blue-500 selection:text-white">
+
+  <!-- ===================================================================== -->
+  <!-- TOP LUXURY BRAND HEADER & TELEMETRY -->
+  <!-- ===================================================================== -->
+  <header class="bg-[#0b1329]/90 border-b border-slate-800/80 px-6 py-3 flex items-center justify-between shadow-2xl z-30 relative backdrop-blur-md">
+    <!-- Brand Title -->
+    <div class="flex items-center space-x-4">
+      <div class="relative">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-blue-600 to-indigo-600 p-[1.5px] shadow-lg shadow-blue-500/20">
+          <div class="w-full h-full bg-slate-950 rounded-2xl flex items-center justify-center">
+            <i data-lucide="compass" class="w-5 h-5 text-amber-400 animate-spin" style="animation-duration: 20s;"></i>
+          </div>
+        </div>
+        <span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-950 rounded-full"></span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2.5">
+          <h1 class="text-base font-extrabold tracking-tight text-white flex items-center gap-2">
+            WANDERPATH <span class="gold-gradient-text font-black tracking-widest text-xs">CONCIERGE</span>
+          </h1>
+          <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">Enterprise AI v3.0</span>
+        </div>
+        <p class="text-[11px] text-slate-400 font-medium flex items-center gap-2">
+          <span>Global Air Charter & Consular Ops</span>
+          <span class="text-slate-600">•</span>
+          <span class="text-cyan-400 flex items-center gap-1"><i data-lucide="cpu" class="w-3 h-3"></i> 5 Autonomous Stateful Graphs</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- MAIN NAVIGATION SWITCHER -->
+    <div class="flex items-center bg-slate-950/80 p-1 rounded-2xl border border-slate-800 shadow-inner">
+      <button onclick="switchView('chat')" id="nav-chat" class="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30 transition-all duration-300">
+        <i data-lucide="message-square" class="w-4 h-4"></i>
+        <span>Concierge Portal</span>
+      </button>
+      <button onclick="switchView('admin')" id="nav-admin" class="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all duration-300 relative">
+        <i data-lucide="shield" class="w-4 h-4 text-amber-400"></i>
+        <span>Command Center</span>
+        <span id="hitl-badge" class="hidden px-2 py-0.5 bg-amber-500 text-slate-950 font-extrabold rounded-full text-[10px] animate-bounce">0</span>
+      </button>
+    </div>
+
+    <!-- LIVE TELEMETRY CHIPS -->
+    <div class="hidden lg:flex items-center gap-4 text-[11px]">
+      <div class="glass-card px-3 py-1.5 rounded-xl flex items-center gap-2 text-slate-300">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>MCP Server <b class="text-white font-mono">:8000</b></span>
+      </div>
+      <div class="glass-card px-3 py-1.5 rounded-xl flex items-center gap-2 text-slate-300">
+        <i data-lucide="database" class="w-3.5 h-3.5 text-cyan-400"></i>
+        <span>SQLite Durable</span>
+      </div>
+      <div class="glass-card px-3 py-1.5 rounded-xl flex items-center gap-2 text-slate-300">
+        <i data-lucide="layers" class="w-3.5 h-3.5 text-purple-400"></i>
+        <span>ChromaDB Vector</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- TOAST NOTIFICATION POPUP -->
+  <!-- ===================================================================== -->
+  <div id="toast-container" class="fixed top-20 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ===================================================================== -->
+  <!-- MAIN WORKSPACE -->
+  <!-- ===================================================================== -->
+  <main class="flex-1 flex overflow-hidden relative">
+
+    <!-- ===================================================================== -->
+    <!-- 1. USER CHAT PORTAL -->
+    <!-- ===================================================================== -->
+    <section id="view-chat" class="flex-1 flex overflow-hidden">
+      <!-- SIDEBAR: AGENT ROSTER -->
+      <aside class="w-84 bg-[#090f1f]/95 border-r border-slate-800/80 p-4 flex flex-col justify-between custom-scrollbar overflow-y-auto">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="bot" class="w-3.5 h-3.5 text-blue-400"></i> Dedicated Agent Roster
+            </span>
+            <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800/60">5 Connected</span>
+          </div>
+
+          <div class="space-y-2.5" id="agent-selector-list">
+            <!-- Agent 1: Visa -->
+            <button onclick="selectAgent('visa_agent')" id="btn-agent-visa_agent" class="agent-btn glass-card-active w-full text-left p-3 rounded-2xl flex items-start gap-3 transition-all duration-300 hover:scale-[1.01]">
+              <div class="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl shrink-0 border border-blue-500/30 shadow-md">
+                <i data-lucide="stamp" class="w-5 h-5"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-white flex items-center justify-between">
+                  <span>Visa & Consular Desk</span>
+                  <span class="text-[9px] px-1.5 py-0.2 bg-blue-900/60 text-blue-300 rounded border border-blue-700/50">Stateful</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1 leading-snug truncate">Task Decomp + RAG • Diplomatic Webhooks</p>
+              </div>
+            </button>
+
+            <!-- Agent 2: Dispute -->
+            <button onclick="selectAgent('dispute_agent')" id="btn-agent-dispute_agent" class="agent-btn glass-card w-full text-left p-3 rounded-2xl flex items-start gap-3 transition-all duration-300 hover:bg-slate-800/40 hover:scale-[1.01]">
+              <div class="p-2.5 bg-purple-500/20 text-purple-400 rounded-xl shrink-0 border border-purple-500/30 shadow-md">
+                <i data-lucide="scale" class="w-5 h-5"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-slate-200 flex items-center justify-between">
+                  <span>Supplier Contract Dispute</span>
+                  <span class="text-[9px] px-1.5 py-0.2 bg-purple-900/60 text-purple-300 rounded border border-purple-700/50">Stateful</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1 leading-snug truncate">Tree of Thoughts + ReAct • 7-Day Windows</p>
+              </div>
+            </button>
+
+            <!-- Agent 3: Medevac -->
+            <button onclick="selectAgent('medevac_agent')" id="btn-agent-medevac_agent" class="agent-btn glass-card w-full text-left p-3 rounded-2xl flex items-start gap-3 transition-all duration-300 hover:bg-slate-800/40 hover:scale-[1.01]">
+              <div class="p-2.5 bg-rose-500/20 text-rose-400 rounded-xl shrink-0 border border-rose-500/30 shadow-md">
+                <i data-lucide="ambulance" class="w-5 h-5"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-slate-200 flex items-center justify-between">
+                  <span>VIP Medevac Air Charter</span>
+                  <span class="text-[9px] px-1.5 py-0.2 bg-rose-900/60 text-rose-300 rounded border border-rose-700/50">Stateful</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1 leading-snug truncate">LATS Airfield Scoring + ReAct Dispatch</p>
+              </div>
+            </button>
+
+            <!-- Agent 4: Disruption Planner -->
+            <button onclick="selectAgent('planning_agent')" id="btn-agent-planning_agent" class="agent-btn glass-card w-full text-left p-3 rounded-2xl flex items-start gap-3 transition-all duration-300 hover:bg-slate-800/40 hover:scale-[1.01]">
+              <div class="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl shrink-0 border border-amber-500/30 shadow-md">
+                <i data-lucide="git-merge" class="w-5 h-5"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-slate-200">Trip Disruption Planner</div>
+                <p class="text-[11px] text-slate-400 mt-1 leading-snug truncate">DAG Dynamic Replanning • Plan-and-Solve</p>
+              </div>
+            </button>
+
+            <!-- Agent 5: Memory / RAG -->
+            <button onclick="selectAgent('memory_rag_agent')" id="btn-agent-memory_rag_agent" class="agent-btn glass-card w-full text-left p-3 rounded-2xl flex items-start gap-3 transition-all duration-300 hover:bg-slate-800/40 hover:scale-[1.01]">
+              <div class="p-2.5 bg-cyan-500/20 text-cyan-400 rounded-xl shrink-0 border border-cyan-500/30 shadow-md">
+                <i data-lucide="brain" class="w-5 h-5"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-slate-200">Memory & Hybrid RAG</div>
+                <p class="text-[11px] text-slate-400 mt-1 leading-snug truncate">Scratchpad + Semantic Store + Hybrid BM25</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- ACTIVE THREAD CARD -->
+        <div class="mt-4 p-3.5 bg-slate-950/90 rounded-2xl border border-slate-800/80 shadow-lg space-y-2">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span class="flex items-center gap-1.5 text-[11px] font-semibold"><i data-lucide="activity" class="w-3.5 h-3.5 text-blue-400"></i> Active Session</span>
+            <button onclick="resetThread()" class="text-xs text-blue-400 hover:text-blue-300 font-semibold hover:underline">New Thread</button>
+          </div>
+          <p id="lbl-thread-id" class="font-mono text-xs text-amber-400 font-bold truncate bg-slate-900/90 p-2 rounded-xl border border-slate-800">thread-live-001</p>
+        </div>
+      </aside>
+
+      <!-- CHAT CONVERSATION WORKSPACE -->
+      <section class="flex-1 flex flex-col bg-[#050811] relative">
+        <!-- TOP AGENT BANNER & LIVE GRAPH NODE PROGRESS -->
+        <div class="px-6 py-3.5 border-b border-slate-800/80 bg-[#0b1329]/60 backdrop-blur-md flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div id="agent-badge-icon" class="p-2 bg-blue-500/20 text-blue-400 rounded-xl border border-blue-500/30">
+                <i data-lucide="stamp" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h2 id="agent-banner-title" class="text-sm font-extrabold text-white">Visa & Consular Processing Desk</h2>
+                <p id="agent-banner-desc" class="text-[11px] text-slate-400 font-medium">Task Decomposition + RAG • Diplomatic Milestones & Fee Approvals</p>
+              </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] text-slate-400 font-semibold">Graph Lifecycle:</span>
+                <span id="agent-state-badge" class="text-xs px-3 py-1 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-700/60 shadow-sm flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> READY
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- NODE TRANSITION STEPPING PILLS -->
+          <div class="flex items-center gap-1.5 text-[10px] font-mono overflow-x-auto py-1 custom-scrollbar text-slate-400" id="graph-steps-visualizer">
+            <span class="px-2 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-800">1. Intake</span>
+            <i data-lucide="chevron-right" class="w-3 h-3 text-slate-600"></i>
+            <span class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">2. Decompose</span>
+            <i data-lucide="chevron-right" class="w-3 h-3 text-slate-600"></i>
+            <span class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">3. RAG Lookup</span>
+            <i data-lucide="chevron-right" class="w-3 h-3 text-slate-600"></i>
+            <span class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">4. Consular Submit</span>
+            <i data-lucide="chevron-right" class="w-3 h-3 text-slate-600"></i>
+            <span class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">5. Webhook Wait</span>
+            <i data-lucide="chevron-right" class="w-3 h-3 text-slate-600"></i>
+            <span class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">6. HITL Gate</span>
+            <i data-lucide="chevron-right" class="w-3 h-3 text-slate-600"></i>
+            <span class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">7. Finalize</span>
+          </div>
+        </div>
+
+        <!-- QUICK SCENARIO ACTION CARDS (TRAVEL THEMED) -->
+        <div class="px-6 py-2 bg-slate-950/70 border-b border-slate-800/60 flex items-center gap-3 overflow-x-auto custom-scrollbar">
+          <span class="text-[11px] font-bold text-slate-400 shrink-0 uppercase tracking-wider">Quick Scenarios:</span>
+          <button onclick="sendPreset('emergency_visa')" class="glass-card hover:border-amber-500/50 hover:bg-amber-950/20 text-slate-300 hover:text-amber-300 px-3 py-1 rounded-xl text-xs flex items-center gap-1.5 transition-all shrink-0">
+            <span>🇫🇷</span> <span>Emergency Schengen Expedite ($650 HITL)</span>
+          </button>
+          <button onclick="sendPreset('strike_dispute')" class="glass-card hover:border-purple-500/50 hover:bg-purple-950/20 text-slate-300 hover:text-purple-300 px-3 py-1 rounded-xl text-xs flex items-center gap-1.5 transition-all shrink-0">
+            <span>✈️</span> <span>PacificFly Strike EU261 Chargeback</span>
+          </button>
+          <button onclick="sendPreset('bali_medevac')" class="glass-card hover:border-rose-500/50 hover:bg-rose-950/20 text-slate-300 hover:text-rose-300 px-3 py-1 rounded-xl text-xs flex items-center gap-1.5 transition-all shrink-0">
+            <span>🚁</span> <span>Bali Spinal Trauma Medevac to SGH</span>
+          </button>
+          <button onclick="sendPreset('disruption_planner')" class="glass-card hover:border-blue-500/50 hover:bg-blue-950/20 text-slate-300 hover:text-blue-300 px-3 py-1 rounded-xl text-xs flex items-center gap-1.5 transition-all shrink-0">
+            <span>🗺️</span> <span>Lisbon-Marrakech Flight Disruption DAG</span>
+          </button>
+        </div>
+
+        <!-- CHAT FEED -->
+        <div id="chat-feed" class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+          <!-- WELCOME CARD -->
+          <div class="flex items-start gap-4 max-w-3xl">
+            <div class="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 shadow-md">
+              <i data-lucide="bot" class="w-5 h-5"></i>
+            </div>
+            <div class="glass-panel p-5 rounded-3xl text-xs space-y-3 text-slate-200 shadow-xl border-l-4 border-l-blue-500">
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Wanderpath Autonomous Travel Concierge</span>
+                  <span class="px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 text-[10px]">Multi-Agent</span>
+                </p>
+                <span class="text-[10px] text-slate-500">Operational</span>
+              </div>
+              <p class="leading-relaxed">Welcome to Wanderpath Travel. I orchestrate mission-critical travel operations across diplomatic visa desks, airline dispute clearinghouses, aeromedical air charters, disruption replanners, and our policy knowledge base.</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 text-[11px] text-slate-400">
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-2">
+                  <i data-lucide="shield-check" class="w-4 h-4 text-amber-400"></i>
+                  <span>Durable SQLite Checkpoints per node</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-2">
+                  <i data-lucide="user-check" class="w-4 h-4 text-emerald-400"></i>
+                  <span>Platform-routed HITL Decision Gates</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- INPUT SUBMISSION BAR -->
+        <div class="p-4 border-t border-slate-800/80 bg-[#090f1f]/90 backdrop-blur-md">
+          <form onsubmit="handleChatSubmit(event)" class="flex items-center gap-3 max-w-4xl mx-auto">
+            <div class="relative flex-1">
+              <input type="text" id="chat-input" placeholder="Type your travel request or click a quick scenario above..." class="w-full bg-slate-950/90 border border-slate-800 rounded-2xl px-5 py-3.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-inner transition-all pr-10">
+              <i data-lucide="sparkles" class="w-4 h-4 text-slate-500 absolute right-4 top-3.5 pointer-events-none"></i>
+            </div>
+            <button type="submit" id="chat-submit-btn" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold px-6 py-3.5 rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-[1.02] transition-all duration-300">
+              <span>Execute</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </form>
+        </div>
+      </section>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- 2. ADMIN OPERATIONS CENTER -->
+    <!-- ===================================================================== -->
+    <section id="view-admin" class="hidden flex-1 flex flex-col bg-[#050811] overflow-hidden">
+      <!-- COMMAND CENTER SUB-NAV -->
+      <nav class="bg-[#0b1329]/90 border-b border-slate-800/80 px-6 py-3 flex items-center justify-between backdrop-blur-md">
+        <div class="flex items-center gap-2.5">
+          <button onclick="switchAdminTab('tools')" id="tab-tools" class="admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold bg-blue-600/20 text-blue-400 border border-blue-500/40 shadow-sm">
+            <i data-lucide="wrench" class="w-3.5 h-3.5 inline mr-1.5 text-blue-400"></i> MCP Tools Registry
+          </button>
+          <button onclick="switchAdminTab('rag')" id="tab-rag" class="admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all">
+            <i data-lucide="book-open" class="w-3.5 h-3.5 inline mr-1.5 text-cyan-400"></i> RAG Policy Base
+          </button>
+          <button onclick="switchAdminTab('hitl')" id="tab-hitl" class="admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all relative">
+            <i data-lucide="user-check" class="w-3.5 h-3.5 inline mr-1.5 text-amber-400"></i> HITL Tasks
+            <span id="tab-hitl-count" class="ml-1.5 px-2 py-0.2 bg-amber-500 text-slate-950 font-black rounded-full text-[10px]">0</span>
+          </button>
+          <button onclick="switchAdminTab('tickets')" id="tab-tickets" class="admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all relative">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5 inline mr-1.5 text-rose-400"></i> Failure Tickets
+            <span id="tab-tickets-count" class="ml-1.5 px-2 py-0.2 bg-rose-500 text-white font-black rounded-full text-[10px]">0</span>
+          </button>
+          <button onclick="switchAdminTab('checkpoints')" id="tab-checkpoints" class="admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all">
+            <i data-lucide="layers" class="w-3.5 h-3.5 inline mr-1.5 text-purple-400"></i> Checkpoints Timeline
+          </button>
+        </div>
+        <button onclick="refreshAdminData()" class="text-xs font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition-all shadow">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-blue-400"></i> Sync Telemetry
+        </button>
+      </nav>
+
+      <!-- ADMIN PANELS CONTAINER -->
+      <div class="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8 max-w-7xl mx-auto w-full">
+
+        <!-- TAB 1: MCP TOOL REGISTRY -->
+        <div id="panel-tools" class="space-y-6">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div>
+              <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="wrench" class="w-5 h-5 text-blue-400"></i> Live Dynamic MCP Tool Registry
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Toggle tools on the running server or register new dynamic capabilities with instant runtime propagation.</p>
+            </div>
+            <button onclick="openRegisterToolModal()" class="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-blue-600/30 hover:scale-105 transition-all">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i> Register Dynamic Tool
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="tools-grid">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- TAB 2: RAG KNOWLEDGE BASE -->
+        <div id="panel-rag" class="hidden space-y-6">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div>
+              <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="book-open" class="w-5 h-5 text-cyan-400"></i> ChromaDB Vector Policy Store
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Ingest or purge policy documents. Changes immediately reflect in agent hybrid retrieval queries.</p>
+            </div>
+            <button onclick="openAddDocModal()" class="px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-cyan-600/30 hover:scale-105 transition-all">
+              <i data-lucide="upload-cloud" class="w-4 h-4"></i> Ingest New Policy
+            </button>
+          </div>
+
+          <div class="glass-panel rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950/80 text-slate-400 uppercase tracking-wider text-[10px] font-bold border-b border-slate-800">
+                <tr>
+                  <th class="p-4">Document ID</th>
+                  <th class="p-4">Policy Content Text</th>
+                  <th class="p-4">Metadata Payload</th>
+                  <th class="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="rag-docs-table" class="divide-y divide-slate-800/60 text-slate-300">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 3: HITL TASKS -->
+        <div id="panel-hitl" class="hidden space-y-6">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div>
+              <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="user-check" class="w-5 h-5 text-amber-400"></i> Human-in-the-Loop (HITL) Decision Queue
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Planned operational approval gates. Review client state and click Approve to resume the paused graph thread.</p>
+            </div>
+            <button onclick="purgeResolvedHITL()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-semibold rounded-2xl text-xs flex items-center gap-1.5 transition-all shadow">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5 text-amber-400"></i> Clear Resolved Tasks
+            </button>
+          </div>
+          <div class="space-y-4" id="hitl-tasks-list">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- TAB 4: FAILURE TICKETS -->
+        <div id="panel-tickets" class="hidden space-y-6">
+          <div class="pb-4 border-b border-slate-800">
+            <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+              <i data-lucide="alert-octagon" class="w-5 h-5 text-rose-400"></i> Unplanned Failure Ticket Recovery Center
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Unhandled runtime exceptions. Inspect stack trace, apply a JSON state patch, and resume mid-node without starting over.</p>
+          </div>
+          <div class="space-y-4" id="failure-tickets-list">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- TAB 5: STATE CHECKPOINTS -->
+        <div id="panel-checkpoints" class="hidden space-y-6">
+          <div class="pb-4 border-b border-slate-800">
+            <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+              <i data-lucide="layers" class="w-5 h-5 text-purple-400"></i> Durable SQLite Checkpoint Timeline
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Immutable audit log of all atomic node transitions serialized to disk.</p>
+          </div>
+          <div class="space-y-3" id="checkpoints-timeline">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: REGISTER DYNAMIC TOOL -->
+  <!-- ===================================================================== -->
+  <div id="modal-register-tool" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="glass-panel bg-[#0b1329] border border-slate-700 p-7 rounded-3xl max-w-md w-full shadow-2xl space-y-4 text-xs">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="wrench" class="w-4 h-4 text-blue-400"></i> Register Dynamic MCP Tool
+        </h3>
+        <button onclick="closeModals()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-3.5">
+        <div>
+          <label class="text-[11px] text-slate-300 font-semibold block mb-1">Tool Name</label>
+          <input id="new-tool-name" type="text" placeholder="e.g., custom_embassy_courier" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-mono">
+        </div>
+        <div>
+          <label class="text-[11px] text-slate-300 font-semibold block mb-1">Description</label>
+          <textarea id="new-tool-desc" rows="2" placeholder="Explain the tool's responsibility..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs"></textarea>
+        </div>
+        <div>
+          <label class="text-[11px] text-slate-300 font-semibold block mb-1">Input Schema (JSON)</label>
+          <textarea id="new-tool-schema" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-mono text-[11px]">{"type": "object", "properties": {"tracking_id": {"type": "string"}}, "required": ["tracking_id"]}</textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+        <button onclick="closeModals()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl font-semibold">Cancel</button>
+        <button onclick="submitRegisterTool()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30">Register Tool</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: ADD RAG DOCUMENT -->
+  <!-- ===================================================================== -->
+  <div id="modal-add-doc" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="glass-panel bg-[#0b1329] border border-slate-700 p-7 rounded-3xl max-w-md w-full shadow-2xl space-y-4 text-xs">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="upload-cloud" class="w-4 h-4 text-cyan-400"></i> Ingest New Policy Document
+        </h3>
+        <button onclick="closeModals()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-3.5">
+        <div>
+          <label class="text-[11px] text-slate-300 font-semibold block mb-1">Document ID</label>
+          <input id="new-doc-id" type="text" placeholder="e.g., policy_morocco_fasttrack" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-mono">
+        </div>
+        <div>
+          <label class="text-[11px] text-slate-300 font-semibold block mb-1">Policy Content Text</label>
+          <textarea id="new-doc-content" rows="4" placeholder="Enter policy text..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs"></textarea>
+        </div>
+        <div>
+          <label class="text-[11px] text-slate-300 font-semibold block mb-1">Metadata (JSON)</label>
+          <input id="new-doc-meta" type="text" value='{"country": "Morocco", "category": "visa"}' class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-mono text-[11px]">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+        <button onclick="closeModals()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl font-semibold">Cancel</button>
+        <button onclick="submitAddRAGDoc()" class="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-600/30">Add to ChromaDB</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- JAVASCRIPT LOGIC & TELEMETRY CONTROLLER -->
+  <!-- ===================================================================== -->
+  <script>
+    let currentAgent = "visa_agent";
+    let currentThread = "thread-live-" + Math.random().toString(36).substring(2, 7);
+    const API_BASE = window.location.origin;
+
+    document.getElementById("lbl-thread-id").innerText = currentThread;
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      const bg = type === 'success' ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-300' :
+                 type === 'error' ? 'bg-rose-950/90 border-rose-500/50 text-rose-300' :
+                 type === 'warning' ? 'bg-amber-950/90 border-amber-500/50 text-amber-300' :
+                 'bg-slate-900/90 border-slate-700 text-slate-200';
+      toast.className = `px-4 py-3 rounded-2xl border shadow-2xl text-xs font-semibold flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 backdrop-blur-md ${bg}`;
+      toast.innerHTML = `<i data-lucide="bell" class="w-4 h-4 shrink-0"></i> <span>${message}</span>`;
+      container.appendChild(toast);
+      lucide.createIcons();
+      setTimeout(() => { toast.classList.remove('translate-y-2', 'opacity-0'); }, 10);
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function switchView(view) {
+      document.getElementById("view-chat").classList.toggle("hidden", view !== 'chat');
+      document.getElementById("view-admin").classList.toggle("hidden", view !== 'admin');
+      
+      document.getElementById("nav-chat").className = view === 'chat' ? 
+        "flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30 transition-all duration-300" :
+        "flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all duration-300";
+      
+      document.getElementById("nav-admin").className = view === 'admin' ?
+        "flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30 transition-all duration-300" :
+        "flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all duration-300";
+
+      if (view === 'admin') refreshAdminData();
+    }
+
+    function switchAdminTab(tab) {
+      ['tools', 'rag', 'hitl', 'tickets', 'checkpoints'].forEach(t => {
+        document.getElementById(`panel-${t}`).classList.toggle("hidden", t !== tab);
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === tab) {
+          btn.className = "admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold bg-blue-600/20 text-blue-400 border border-blue-500/40 shadow-sm";
+        } else {
+          btn.className = "admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all";
+        }
+      });
+    }
+
+    function selectAgent(agentId) {
+      currentAgent = agentId;
+      // Isolate threads per agent
+      currentThread = "thread-" + agentId.replace("_agent", "") + "-" + Math.random().toString(36).substring(2, 6);
+      document.getElementById("lbl-thread-id").innerText = currentThread;
+
+      document.querySelectorAll(".agent-btn").forEach(btn => {
+        btn.classList.remove("glass-card-active");
+        btn.classList.add("glass-card");
+      });
+      document.getElementById(`btn-agent-${agentId}`).classList.remove("glass-card");
+      document.getElementById(`btn-agent-${agentId}`).classList.add("glass-card-active");
+
+      const agentMeta = {
+        visa_agent: {
+          title: "Visa & Consular Processing Desk",
+          desc: "Task Decomposition + RAG • Diplomatic Milestones & Fee Approvals",
+          icon: "stamp",
+          steps: ["1. Intake", "2. Decompose", "3. RAG Lookup", "4. Consular Submit", "5. Webhook Wait", "6. HITL Gate", "7. Finalize"]
+        },
+        dispute_agent: {
+          title: "Supplier Dispute & Chargeback Desk",
+          desc: "Tree of Thoughts + ReAct • 7-Day Airline Windows & Arbitration",
+          icon: "scale",
+          steps: ["1. Intake", "2. Tree of Thoughts", "3. GDS ReAct Filing", "4. Adjudication Wait", "5. Fee Waiver HITL", "6. Settlement"]
+        },
+        medevac_agent: {
+          title: "VIP Medical Evacuation & Air Charter Desk",
+          desc: "LATS Airfield Scoring + ReAct Dispatch • ICU Bed Authorization",
+          icon: "ambulance",
+          steps: ["1. Intake Alert", "2. LATS Route Search", "3. Charter ReAct", "4. Bed Admission Wait", "5. Physician HITL", "6. Airborne"]
+        },
+        planning_agent: {
+          title: "Trip Disruption Planning Agent",
+          desc: "DAG Dynamic Replanning • Plan-and-Solve & Decision Matrix",
+          icon: "git-merge",
+          steps: ["1. Intake Disruption", "2. Up-Front DAG", "3. Sub-Task Routing", "4. Re-Planning Solver", "5. Complete"]
+        },
+        memory_rag_agent: {
+          title: "Memory & Hybrid RAG Master Agent",
+          desc: "Scratchpad + Semantic Store + Hybrid BM25 & Self-RAG",
+          icon: "brain",
+          steps: ["1. Semantic Scratchpad", "2. Hybrid Search", "3. Self-RAG Verify", "4. Consolidated Response"]
+        }
+      };
+
+      const meta = agentMeta[agentId];
+      if (meta) {
+        document.getElementById("agent-banner-title").innerText = meta.title;
+        document.getElementById("agent-banner-desc").innerText = meta.desc;
+        document.getElementById("agent-badge-icon").innerHTML = `<i data-lucide="${meta.icon}" class="w-4 h-4"></i>`;
+        
+        // Update pills
+        const visualizer = document.getElementById("graph-steps-visualizer");
+        visualizer.innerHTML = meta.steps.map((s, idx) => `
+          <span class="px-2.5 py-0.5 rounded ${idx === 0 ? 'bg-blue-950/80 text-blue-300 border border-blue-800' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${s}</span>
+          ${idx < meta.steps.length - 1 ? '<i data-lucide="chevron-right" class="w-3 h-3 text-slate-600"></i>' : ''}
+        `).join("");
+      }
+
+      // Reset state badge
+      const badge = document.getElementById("agent-state-badge");
+      badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-700/60 shadow-sm flex items-center gap-1.5";
+      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> READY`;
+
+      lucide.createIcons();
+    }
+
+    function resetThread() {
+      currentThread = "thread-" + currentAgent.replace("_agent", "") + "-" + Math.random().toString(36).substring(2, 6);
+      document.getElementById("lbl-thread-id").innerText = currentThread;
+      document.getElementById("chat-feed").innerHTML = `
+        <div class="flex items-start gap-4 max-w-3xl">
+          <div class="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 shadow-md">
+            <i data-lucide="bot" class="w-5 h-5"></i>
+          </div>
+          <div class="glass-panel p-5 rounded-3xl text-xs space-y-2 text-slate-200 shadow-xl border-l-4 border-l-blue-500">
+            <p class="font-bold text-white">Fresh thread session initialized: <span class="font-mono text-amber-400">${currentThread}</span></p>
+            <p class="text-slate-400">All subsequent state graph execution snapshots will persist cleanly under this session ID.</p>
+          </div>
+        </div>
+      `;
+      showToast(`Initialized fresh thread: ${currentThread}`, 'info');
+      lucide.createIcons();
+    }
+
+    async function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById("chat-input");
+      const msg = input.value.trim();
+      if (!msg) return;
+      input.value = "";
+
+      appendMessage("user", msg);
+      document.getElementById("chat-submit-btn").disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/chat`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ agent_id: currentAgent, message: msg, thread_id: currentThread })
+        });
+        const data = await res.json();
+        
+        // Update badge
+        const badge = document.getElementById("agent-state-badge");
+        badge.innerText = data.status || "COMPLETED";
+        const isExternalWait = data.current_node && data.current_node.includes("awaiting_");
+        
+        if (data.status === "INTERRUPTED" && isExternalWait) {
+          badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-blue-950 text-cyan-300 border border-cyan-500 shadow-md flex items-center gap-1.5 animate-pulse";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-cyan-400"></span> WAITING FOR WEBHOOK`;
+          showToast("Graph paused awaiting external asynchronous event.", "info");
+        } else if (data.status === "INTERRUPTED") {
+          badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-amber-950 text-amber-300 border border-amber-600 shadow-md flex items-center gap-1.5 animate-pulse";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> PAUSED (HITL GATE)`;
+          showToast("Graph execution paused at HITL approval gate. Check Command Center.", "warning");
+        } else if (data.status === "FAILED") {
+          badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-rose-950 text-rose-300 border border-rose-600 shadow-md flex items-center gap-1.5 animate-pulse";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span> FAILED (TICKET OPENED)`;
+          showToast("Unhandled error recorded into Failure Tickets.", "error");
+        } else {
+          badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-700/60 shadow-sm flex items-center gap-1.5";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> COMPLETED`;
+        }
+
+        appendMessage("agent", data.response, data.state);
+        refreshAdminData();
+      } catch (err) {
+        appendMessage("agent", "Error connecting to platform backend: " + err.message);
+      } finally {
+        document.getElementById("chat-submit-btn").disabled = false;
+      }
+    }
+
+    function appendMessage(role, text, state) {
+      const feed = document.getElementById("chat-feed");
+      const isUser = role === "user";
+      const div = document.createElement("div");
+      div.className = `flex items-start gap-3 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : ''}`;
+      
+      const isExternalWait = state && state.__status__ === "INTERRUPTED" && 
+        (state.__interrupt_type__ === "AWAITING_EXTERNAL" || (state.__current_node__ && state.__current_node__.includes("awaiting_")));
+      const isHITL = state && state.__status__ === "INTERRUPTED" && !isExternalWait;
+
+      div.innerHTML = `
+        <div class="w-9 h-9 rounded-2xl ${isUser ? 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white' : 'bg-slate-900 border border-slate-800 text-blue-400'} flex items-center justify-center shrink-0 shadow-md">
+          <i data-lucide="${isUser ? 'user' : 'bot'}" class="w-4 h-4"></i>
+        </div>
+        <div class="${isUser ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white' : 'glass-panel text-slate-200'} p-4 rounded-3xl text-xs space-y-2.5 shadow-xl">
+          <p class="whitespace-pre-wrap leading-relaxed">${text}</p>
+          
+          ${isExternalWait ? `
+            <div class="p-3.5 bg-blue-950/50 border border-cyan-500/40 rounded-2xl text-cyan-200 text-[11px] space-y-2 shadow-lg">
+              <div class="flex items-center justify-between font-bold text-cyan-300">
+                <span class="flex items-center gap-1.5"><i data-lucide="clock" class="w-4 h-4 text-cyan-400"></i> Asynchronous External Wait: <span class="font-mono underline">${state.__current_node__}</span></span>
+                <span class="px-2 py-0.5 bg-cyan-900/60 text-cyan-300 rounded text-[9px]">PAUSED</span>
+              </div>
+              <p class="text-slate-300 text-[11px]">${state.__interrupt_reason__ || 'Awaiting external partner webhook or event payload.'}</p>
+              <div class="pt-1">
+                <button onclick="simulateExternalEvent('${currentAgent}', '${currentThread}')" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-extrabold rounded-xl text-[11px] shadow-lg shadow-cyan-600/30 hover:scale-105 transition-all flex items-center gap-1.5">
+                  <i data-lucide="zap" class="w-3.5 h-3.5"></i> Simulate Webhook / Event Arrival & Resume
+                </button>
+              </div>
+            </div>
+          ` : ''}
+
+          ${isHITL ? `
+            <div class="p-3.5 bg-amber-950/40 border border-amber-500/40 rounded-2xl text-amber-200 text-[11px] space-y-2 shadow-lg">
+              <div class="flex items-center justify-between font-bold text-amber-400">
+                <span class="flex items-center gap-1.5"><i data-lucide="pause-circle" class="w-4 h-4"></i> Managerial Decision Gate (HITL Task)</span>
+                <span class="px-2 py-0.5 bg-amber-500 text-slate-950 rounded text-[9px] font-black animate-pulse">ACTION REQUIRED</span>
+              </div>
+              <p class="text-amber-200 text-[11px]">${state.__interrupt_reason__ || 'Condition exceeds operational threshold.'}</p>
+              <div class="pt-1">
+                <button onclick="switchView('admin'); switchAdminTab('hitl')" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-[11px] shadow-md hover:scale-105 transition-all flex items-center gap-1.5">
+                  <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Open Command Center -> HITL Tasks to Authorize →
+                </button>
+              </div>
+            </div>
+          ` : ''}
+
+          ${state && state.__status__ === "FAILED" ? `
+            <div class="p-3 bg-rose-950/40 border border-rose-500/40 rounded-2xl text-rose-200 text-[11px] space-y-1.5">
+              <div class="flex items-center gap-2 font-bold text-rose-400">
+                <i data-lucide="alert-octagon" class="w-4 h-4"></i> Failure Ticket Logged: <span class="font-mono">${state.__failure_ticket_id__}</span>
+              </div>
+              <p>Error: ${state.__error__}</p>
+              <div class="pt-1">
+                <button onclick="switchView('admin'); switchAdminTab('tickets')" class="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-[10px] shadow">Inspect Stack & Patch State →</button>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+      feed.appendChild(div);
+      feed.scrollTop = feed.scrollHeight;
+      lucide.createIcons();
+    }
+
+    async function simulateExternalEvent(agent, thread) {
+      showToast("Simulating asynchronous event delivery...", "info");
+      try {
+        const res = await fetch(`${API_BASE}/api/chat/simulate_event`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ agent_id: agent, thread_id: thread, event_type: "webhook" })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+          const badge = document.getElementById("agent-state-badge");
+          badge.innerText = data.new_graph_status;
+          if (data.new_graph_status === "INTERRUPTED") {
+            badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-amber-950 text-amber-300 border border-amber-600 shadow-md flex items-center gap-1.5 animate-pulse";
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> PAUSED (HITL GATE)`;
+            showToast("External event received -> Advanced to HITL approval gate!", "warning");
+          } else {
+            badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-700/60 shadow-sm flex items-center gap-1.5";
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> COMPLETED`;
+            showToast("External event received -> Graph finalized successfully!", "success");
+          }
+
+          let followMsg = "⚡ External event received and state graph progressed.";
+          if (data.state.__current_node__ === "evaluate_consular_response") {
+            followMsg = "🚨 **Embassy Webhook Received**: Expedited fast-track slot approved with consular fee **$650.00**.\n\n*Condition Triggered: Expedited fee exceeds $500 threshold -> Escalated to HITL Decision Queue.*";
+          } else if (data.state.__current_node__ === "evaluate_settlement_offer") {
+            followMsg = "🚨 **Carrier Settlement Received**: PacificFly offered $200 refund with **$350 fee waiver**.\n\n*Condition Triggered: Fee waiver exceeds $300 threshold -> Escalated to HITL Decision Queue.*";
+          } else if (data.state.__current_node__ === "evaluate_physician_authorization") {
+            followMsg = "🚨 **Hospital Bed Confirmed**: SGH ICU-BED-04 confirmed. Charter guarantee **$14,500.00**.\n\n*Condition Triggered: Charter guarantee exceeds $5,000 threshold -> Escalated to Medical Director HITL.*";
+          } else if (data.new_graph_status === "COMPLETED") {
+            followMsg = "✅ **Workflow Completed**: Graph successfully finalized.";
+          }
+
+          appendMessage("agent", followMsg, data.state);
+          refreshAdminData();
+        }
+      } catch(err) {
+        showToast("Simulation error: " + err.message, "error");
+      }
+    }
+
+    async function purgeResolvedHITL() {
+      await fetch(`${API_BASE}/api/admin/hitl/purge`, { method: "POST" });
+      showToast("Purged all past resolved HITL tasks.", "info");
+      refreshAdminData();
+    }
+
+    function sendPreset(type) {
+      if (type === 'emergency_visa') {
+        selectAgent('visa_agent');
+        document.getElementById('chat-input').value = "Client Liam Neeson needs expedited Schengen visa for France with emergency processing.";
+      } else if (type === 'strike_dispute') {
+        selectAgent('dispute_agent');
+        document.getElementById('chat-input').value = "PacificFly cancelled flight WP-202 due to crew strike. Demanding EU261 compensation + refund.";
+      } else if (type === 'bali_medevac') {
+        selectAgent('medevac_agent');
+        document.getElementById('chat-input').value = "Elena Rostova suffered acute spinal trauma in Bali. Requesting ICU medical evacuation charter to Singapore.";
+      } else if (type === 'disruption_planner') {
+        selectAgent('planning_agent');
+        document.getElementById('chat-input').value = "Maria Ostrowski Lisbon to Marrakech flight cancelled. Rebooking multi-leg journey.";
+      }
+      document.getElementById('chat-input').focus();
+    }
+
+    // --- ADMIN DATA REFRESH ---
+    async function refreshAdminData() {
+      try {
+        const resTools = await fetch(`${API_BASE}/api/admin/tools`);
+        const dataTools = await resTools.json();
+        renderTools(dataTools.tools || []);
+
+        const resRAG = await fetch(`${API_BASE}/api/admin/rag/documents`);
+        const dataRAG = await resRAG.json();
+        renderRAG(dataRAG.documents || []);
+
+        const resHITL = await fetch(`${API_BASE}/api/admin/hitl/tasks`);
+        const dataHITL = await resHITL.json();
+        renderHITL(dataHITL.tasks || []);
+
+        const resTickets = await fetch(`${API_BASE}/api/admin/tickets`);
+        const dataTickets = await resTickets.json();
+        renderTickets(dataTickets.tickets || []);
+      } catch (err) {
+        console.error("Failed to refresh admin data:", err);
+      }
+    }
+
+    function renderTools(tools) {
+      const grid = document.getElementById("tools-grid");
+      grid.innerHTML = "";
+      tools.forEach(t => {
+        const isEnabled = t.enabled !== false;
+        const card = document.createElement("div");
+        card.className = "glass-panel p-5 rounded-3xl flex flex-col justify-between space-y-4 shadow-xl border border-slate-800";
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-xs font-bold text-white flex items-center gap-1.5">
+                <i data-lucide="code" class="w-3.5 h-3.5 text-blue-400"></i> ${t.name}
+              </span>
+              <span class="text-[10px] px-2.5 py-0.5 rounded-full font-bold ${isEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'}">${isEnabled ? 'ONLINE' : 'DISABLED'}</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">${t.description || 'No description available.'}</p>
+          </div>
+          <div class="flex items-center justify-between pt-3 border-t border-slate-800/80">
+            <span class="text-[10px] font-semibold text-slate-500">${t.is_dynamic ? 'Dynamic MCP Tool' : 'Core Base Tool'}</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" onchange="toggleTool('${t.name}', this.checked)" ${isEnabled ? 'checked' : ''} class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    async function toggleTool(toolName, enabled) {
+      await fetch(`${API_BASE}/api/admin/tools/toggle`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ tool_name: toolName, enabled: enabled })
+      });
+      showToast(`Tool '${toolName}' ${enabled ? 'enabled' : 'disabled'} on live MCP server.`, 'success');
+      refreshAdminData();
+    }
+
+    function renderRAG(docs) {
+      const tbody = document.getElementById("rag-docs-table");
+      tbody.innerHTML = "";
+      docs.forEach(d => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/30 transition-all";
+        tr.innerHTML = `
+          <td class="p-4 font-mono text-cyan-400 font-bold">${d.id}</td>
+          <td class="p-4 text-slate-300 max-w-sm truncate">${d.document}</td>
+          <td class="p-4"><span class="font-mono text-[10px] bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">${JSON.stringify(d.metadata)}</span></td>
+          <td class="p-4 text-right">
+            <button onclick="deleteRAGDoc('${d.id}')" class="text-rose-400 hover:text-rose-300 p-2 hover:bg-rose-950/40 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      lucide.createIcons();
+    }
+
+    async function deleteRAGDoc(docId) {
+      if (!confirm(`Permanently remove policy '${docId}' from ChromaDB vector store?`)) return;
+      await fetch(`${API_BASE}/api/admin/rag/documents/${docId}`, { method: "DELETE" });
+      showToast(`Deleted policy '${docId}' from ChromaDB.`, 'info');
+      refreshAdminData();
+    }
+
+    function renderHITL(tasks) {
+      const container = document.getElementById("hitl-tasks-list");
+      const pending = tasks.filter(t => t.status === "PENDING");
+      document.getElementById("hitl-badge").innerText = pending.length;
+      document.getElementById("hitl-badge").classList.toggle("hidden", pending.length === 0);
+      document.getElementById("tab-hitl-count").innerText = pending.length;
+
+      container.innerHTML = "";
+      if (tasks.length === 0) {
+        container.innerHTML = `<div class="glass-panel p-12 text-center text-slate-500 text-xs rounded-3xl">No pending or past HITL tasks recorded. All operational thresholds clear.</div>`;
+        return;
+      }
+
+      tasks.forEach(t => {
+        const isPending = t.status === "PENDING";
+        const card = document.createElement("div");
+        card.className = `p-6 rounded-3xl border shadow-xl ${isPending ? 'bg-amber-950/20 border-amber-500/50 shadow-amber-500/5' : 'glass-panel border-slate-800'} space-y-4`;
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-black text-white font-mono bg-slate-900 px-3 py-1 rounded-xl border border-slate-800">${t.task_id}</span>
+              <span class="text-[10px] px-2.5 py-0.5 rounded-full font-bold ${isPending ? 'bg-amber-500 text-slate-950 animate-pulse' : 'bg-slate-800 text-slate-400'}">${t.status}</span>
+              <span class="text-xs text-slate-400">Node: <b class="text-slate-200 font-mono">${t.node_name}</b></span>
+            </div>
+            <span class="text-[10px] text-slate-500 font-mono">${t.thread_id}</span>
+          </div>
+          <div class="p-3.5 bg-amber-950/40 border border-amber-500/30 rounded-2xl text-amber-200 text-xs space-y-1">
+            <p class="font-bold">⚠️ Condition: ${t.reason}</p>
+            ${t.threshold_info ? `<p class="font-mono text-[11px] text-amber-300">Trigger: ${t.threshold_info}</p>` : ''}
+          </div>
+          ${isPending ? `
+            <div class="flex justify-end gap-3 pt-2">
+              <button onclick="resolveHITL('${t.task_id}', 'REJECTED')" class="px-5 py-2.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-2xl text-xs font-bold transition-all">Reject Task</button>
+              <button onclick="resolveHITL('${t.task_id}', 'APPROVED')" class="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-extrabold shadow-lg shadow-emerald-600/30 hover:scale-105 transition-all">Approve & Resume Graph</button>
+            </div>
+          ` : `<div class="text-[11px] text-slate-400 font-medium">Resolution Decision: <b class="text-white">${t.admin_decision}</b> | Notes: ${t.admin_notes || 'None'}</div>`}
+        `;
+        container.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    async function resolveHITL(taskId, decision) {
+      await fetch(`${API_BASE}/api/admin/hitl/tasks/${taskId}/resolve`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ decision: decision, admin_notes: "Authorized via Platform UI" })
+      });
+      showToast(`HITL Task ${taskId} ${decision.toLowerCase()} -> Graph resumed!`, 'success');
+      refreshAdminData();
+    }
+
+    function renderTickets(tickets) {
+      const container = document.getElementById("failure-tickets-list");
+      const open = tickets.filter(t => t.status === "OPEN");
+      document.getElementById("tab-tickets-count").innerText = open.length;
+      container.innerHTML = "";
+
+      if (tickets.length === 0) {
+        container.innerHTML = `<div class="glass-panel p-12 text-center text-slate-500 text-xs rounded-3xl">No runtime failure tickets recorded. Zero tool or network exceptions.</div>`;
+        return;
+      }
+
+      tickets.forEach(t => {
+        const isOpen = t.status === "OPEN" || t.status === "INVESTIGATING";
+        const card = document.createElement("div");
+        card.className = `p-6 rounded-3xl border shadow-xl ${isOpen ? 'bg-rose-950/20 border-rose-500/50 shadow-rose-500/5' : 'glass-panel border-slate-800'} space-y-4`;
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-black text-white font-mono bg-slate-900 px-3 py-1 rounded-xl border border-slate-800">${t.ticket_id}</span>
+              <span class="text-[10px] px-2.5 py-0.5 rounded-full font-bold ${isOpen ? 'bg-rose-600 text-white animate-pulse' : 'bg-emerald-950 text-emerald-400'}">${t.status}</span>
+              <span class="text-xs text-slate-400">Failed Node: <b class="text-rose-300 font-mono">${t.failed_node}</b></span>
+            </div>
+            <span class="text-[10px] text-slate-500 font-mono">${t.thread_id}</span>
+          </div>
+          <p class="text-xs text-rose-300 font-semibold flex items-center gap-2"><i data-lucide="flame" class="w-4 h-4"></i> ${t.error_message}</p>
+          ${t.error_traceback ? `<pre class="text-[10px] bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-slate-400 overflow-x-auto custom-scrollbar font-mono">${t.error_traceback}</pre>` : ''}
+          ${isOpen ? `
+            <div class="pt-2 border-t border-rose-800/40 space-y-2">
+              <label class="text-[11px] text-slate-300 block font-bold">State Patch Recovery JSON:</label>
+              <textarea id="patch-${t.ticket_id}" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-mono text-[11px]">{"gds_gateway_override": "GDS-BACKUP-01"}</textarea>
+              <div class="flex justify-end">
+                <button onclick="resolveTicket('${t.ticket_id}')" class="px-6 py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white rounded-2xl text-xs font-extrabold shadow-lg shadow-rose-600/30 hover:scale-105 transition-all">Patch State & Resume Run</button>
+              </div>
+            </div>
+          ` : `<div class="text-[11px] text-slate-400 font-medium">Resolution Notes: ${t.resolution_notes}</div>`}
+        `;
+        container.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    async function resolveTicket(ticketId) {
+      const patchText = document.getElementById(`patch-${ticketId}`).value;
+      let patch = null;
+      try { patch = JSON.parse(patchText); } catch(e) {}
+      await fetch(`${API_BASE}/api/admin/tickets/${ticketId}/resolve`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ state_patch: patch, resolution_notes: "Patched via Platform Command Center" })
+      });
+      showToast(`Failure ticket ${ticketId} resolved -> State patched & run resumed!`, 'success');
+      refreshAdminData();
+    }
+
+    function openRegisterToolModal() { document.getElementById("modal-register-tool").classList.remove("hidden"); }
+    function openAddDocModal() { document.getElementById("modal-add-doc").classList.remove("hidden"); }
+    function closeModals() { document.querySelectorAll(".fixed").forEach(m => m.classList.add("hidden")); }
+
+    async function submitRegisterTool() {
+      const name = document.getElementById("new-tool-name").value.trim();
+      const desc = document.getElementById("new-tool-desc").value.trim();
+      const schemaText = document.getElementById("new-tool-schema").value;
+      let schema = {};
+      try { schema = JSON.parse(schemaText); } catch(e) {}
+      await fetch(`${API_BASE}/api/admin/tools/register`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ name: name, description: desc, input_schema: schema })
+      });
+      closeModals();
+      showToast(`Dynamic tool '${name}' registered!`, 'success');
+      refreshAdminData();
+    }
+
+    async function submitAddRAGDoc() {
+      const id = document.getElementById("new-doc-id").value.trim();
+      const content = document.getElementById("new-doc-content").value.trim();
+      const metaText = document.getElementById("new-doc-meta").value;
+      let meta = {};
+      try { meta = JSON.parse(metaText); } catch(e) {}
+      await fetch(`${API_BASE}/api/admin/rag/documents`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ doc_id: id, content: content, metadata: meta })
+      });
+      closeModals();
+      showToast(`Ingested policy '${id}' into ChromaDB!`, 'success');
+      refreshAdminData();
+    }
+
+    // Initialize Lucide Icons
+    lucide.createIcons();
+  </script>
+</body>
+</html>

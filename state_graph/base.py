@@ -202,10 +202,10 @@ class StateGraph:
         """
         Executes or resumes the state graph with durable checkpoints after each node.
         """
-        latest_chk = self.checkpointer.load_latest_checkpoint(thread_id)
+        latest_chk = self.checkpointer.load_latest_checkpoint(thread_id, graph_name=self.name)
         
         # 1. Determine starting node and state
-        if latest_chk:
+        if latest_chk and latest_chk.state_data.get("__status__") != "COMPLETED":
             # Resuming from existing checkpoint
             state = latest_chk.state_data
             step_number = latest_chk.step_number
@@ -230,7 +230,7 @@ class StateGraph:
             current_node = self.entry_point
             state = initial_state or {}
             step_number = 0
-            parent_chk_id = None
+            parent_chk_id = latest_chk.checkpoint_id if latest_chk else None
 
         state["__thread_id__"] = thread_id
         state["__graph__"] = self.name
@@ -285,15 +285,16 @@ class StateGraph:
                 state["__interrupt_reason__"] = sig.reason
                 state["__interrupt_type__"] = sig.interrupt_type
                 
-                # Record HITL task
-                hitl_task_id = self._record_hitl_task(
-                    thread_id=thread_id,
-                    node_name=current_node,
-                    reason=sig.reason,
-                    threshold_info=sig.threshold_info,
-                    payload=sig.payload or state,
-                )
-                state["__hitl_task_id__"] = hitl_task_id
+                # Record HITL task ONLY for genuine HITL gates (not external webhook pauses)
+                if sig.interrupt_type == "HITL":
+                    hitl_task_id = self._record_hitl_task(
+                        thread_id=thread_id,
+                        node_name=current_node,
+                        reason=sig.reason,
+                        threshold_info=sig.threshold_info,
+                        payload=sig.payload or state,
+                    )
+                    state["__hitl_task_id__"] = hitl_task_id
 
                 # Persist interrupted checkpoint
                 chk_id = self.checkpointer.save_checkpoint(
@@ -358,11 +359,30 @@ class StateGraph:
         max_steps: int = 50,
     ) -> Dict[str, Any]:
         """Synchronous convenience helper for execute()."""
-        return asyncio.run(
-            self.execute(
-                thread_id=thread_id,
-                initial_state=initial_state,
-                resume_payload=resume_payload,
-                max_steps=max_steps,
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    asyncio.run,
+                    self.execute(
+                        thread_id=thread_id,
+                        initial_state=initial_state,
+                        resume_payload=resume_payload,
+                        max_steps=max_steps,
+                    )
+                )
+                return future.result()
+        else:
+            return asyncio.run(
+                self.execute(
+                    thread_id=thread_id,
+                    initial_state=initial_state,
+                    resume_payload=resume_payload,
+                    max_steps=max_steps,
+                )
             )
-        )

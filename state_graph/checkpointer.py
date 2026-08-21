@@ -109,22 +109,35 @@ class DurableCheckpointer:
 
         return checkpoint_id
 
-    def load_latest_checkpoint(self, thread_id: str) -> Optional[CheckpointRecord]:
-        """Loads the most recent checkpoint for a given thread_id."""
+    def load_latest_checkpoint(self, thread_id: str, graph_name: Optional[str] = None) -> Optional[CheckpointRecord]:
+        """Loads the most recent checkpoint for a given thread_id and optional graph_name."""
         conn = sqlite3.connect(self.db_path, timeout=10.0)
         conn.row_factory = sqlite3.Row
         try:
-            cursor = conn.execute(
-                """
-                SELECT checkpoint_id, thread_id, graph_name, current_node,
-                       state_data, step_number, parent_checkpoint_id, created_at
-                FROM state_checkpoints
-                WHERE thread_id = ?
-                ORDER BY step_number DESC, id DESC
-                LIMIT 1
-                """,
-                (thread_id,),
-            )
+            if graph_name:
+                cursor = conn.execute(
+                    """
+                    SELECT checkpoint_id, thread_id, graph_name, current_node,
+                           state_data, step_number, parent_checkpoint_id, created_at
+                    FROM state_checkpoints
+                    WHERE thread_id = ? AND graph_name = ?
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (thread_id, graph_name),
+                )
+            else:
+                cursor = conn.execute(
+                    """
+                    SELECT checkpoint_id, thread_id, graph_name, current_node,
+                           state_data, step_number, parent_checkpoint_id, created_at
+                    FROM state_checkpoints
+                    WHERE thread_id = ?
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (thread_id,),
+                )
             row = cursor.fetchone()
             if row:
                 return CheckpointRecord(
@@ -141,22 +154,34 @@ class DurableCheckpointer:
             conn.close()
         return None
 
-    def list_checkpoints(self, thread_id: str) -> List[CheckpointRecord]:
-        """Lists all sequential checkpoints saved for a thread_id."""
+    def list_checkpoints(self, thread_id: str, graph_name: Optional[str] = None) -> List[CheckpointRecord]:
+        """Lists all sequential checkpoints saved for a thread_id and optional graph_name."""
         records = []
         conn = sqlite3.connect(self.db_path, timeout=10.0)
         conn.row_factory = sqlite3.Row
         try:
-            cursor = conn.execute(
-                """
-                SELECT checkpoint_id, thread_id, graph_name, current_node,
-                       state_data, step_number, parent_checkpoint_id, created_at
-                FROM state_checkpoints
-                WHERE thread_id = ?
-                ORDER BY step_number ASC, id ASC
-                """,
-                (thread_id,),
-            )
+            if graph_name:
+                cursor = conn.execute(
+                    """
+                    SELECT checkpoint_id, thread_id, graph_name, current_node,
+                           state_data, step_number, parent_checkpoint_id, created_at
+                    FROM state_checkpoints
+                    WHERE thread_id = ? AND graph_name = ?
+                    ORDER BY step_number ASC, id ASC
+                    """,
+                    (thread_id, graph_name),
+                )
+            else:
+                cursor = conn.execute(
+                    """
+                    SELECT checkpoint_id, thread_id, graph_name, current_node,
+                           state_data, step_number, parent_checkpoint_id, created_at
+                    FROM state_checkpoints
+                    WHERE thread_id = ?
+                    ORDER BY step_number ASC, id ASC
+                    """,
+                    (thread_id,),
+                )
             for row in cursor.fetchall():
                 records.append(
                     CheckpointRecord(

@@ -123,7 +123,11 @@ def create_dispute_reconciliation_graph(
     # NODE 4: Awaiting Carrier Adjudication (Asynchronous Wait State)
     # ========================================================================
     def awaiting_carrier_adjudication(state: Dict[str, Any]) -> Dict[str, Any]:
-        settlement_data = state.get("carrier_settlement") or state.get("__resume_payload__", {}).get("carrier_settlement")
+        settlement_data = (
+            state.get("carrier_settlement")
+            or state.get("__resume_payload__", {}).get("carrier_settlement")
+            or state.get("__resume_payload__")
+        )
         
         if not settlement_data:
             logger.info("[DisputeGraph] ⏸️ State: Pausing graph — Awaiting carrier dispute settlement response (7-day window)...")
