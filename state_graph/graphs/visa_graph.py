@@ -133,7 +133,11 @@ def create_visa_processing_graph(checkpointer: Optional[DurableCheckpointer] = N
     # ========================================================================
     def awaiting_consular_webhook(state: Dict[str, Any]) -> Dict[str, Any]:
         # If webhook payload has arrived in resume_payload, process it
-        webhook_data = state.get("webhook_payload") or state.get("__resume_payload__", {}).get("webhook_payload")
+        webhook_data = (
+            state.get("webhook_payload")
+            or state.get("__resume_payload__", {}).get("webhook_payload")
+            or state.get("__resume_payload__")
+        )
         
         if not webhook_data:
             logger.info("[VisaGraph] ⏸️ State: Pausing graph — Awaiting external consular webhook...")

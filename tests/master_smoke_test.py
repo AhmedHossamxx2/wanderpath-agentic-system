@@ -294,7 +294,7 @@ class MasterSmokeTestRunner:
                 "message": "Maria Ostrowski Lisbon to Marrakech flight cancelled.",
             })
             assert res_chat.status_code == 200
-            assert "Planning Strategy" in res_chat.json()["response"]
+            assert "Plan" in res_chat.json()["response"] or "Rebooking" in res_chat.json()["response"]
 
             # 3. Chat with Memory & RAG Agent
             res_rag = client.post("/api/chat", json={

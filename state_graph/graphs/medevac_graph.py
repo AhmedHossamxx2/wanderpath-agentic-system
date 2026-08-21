@@ -140,7 +140,11 @@ def create_medevac_repatriation_graph(
     # NODE 4: Awaiting Hospital Admission (Asynchronous Wait State)
     # ========================================================================
     def awaiting_hospital_admission(state: Dict[str, Any]) -> Dict[str, Any]:
-        hospital_data = state.get("hospital_confirmation") or state.get("__resume_payload__", {}).get("hospital_confirmation")
+        hospital_data = (
+            state.get("hospital_confirmation")
+            or state.get("__resume_payload__", {}).get("hospital_confirmation")
+            or state.get("__resume_payload__")
+        )
 
         if not hospital_data:
             logger.info("[MedevacGraph] ⏸️ State: Pausing graph — Awaiting receiving hospital ICU bed confirmation...")

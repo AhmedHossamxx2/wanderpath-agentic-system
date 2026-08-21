@@ -90,15 +90,62 @@ GRAPH_REGISTRY = {
 # ============================================================================
 # 1. USER CHAT API & MULTI-AGENT ROUTER
 # ============================================================================
+GREETINGS = {"hi", "hello", "hey", "help", "start", "greetings", "good morning", "good evening", "what can you do?"}
+
+def is_greeting(msg: str) -> bool:
+    clean = msg.strip().lower().rstrip("!?.")
+    return clean in GREETINGS or len(clean) <= 3
+
 async def handle_agent_chat(request: Request) -> JSONResponse:
     body = await request.json()
     thread_id = body.get("thread_id") or f"thread-{uuid.uuid4().hex[:8]}"
     agent_id = body.get("agent_id", "").lower()
-    user_msg = body.get("message", "")
+    user_msg = body.get("message", "").strip()
     params = body.get("parameters") or {}
 
     logger.info(f"[ChatAPI] Route to agent '{agent_id}' on thread '{thread_id}': '{user_msg}'")
 
+    # Handle greetings / conversational intros
+    if is_greeting(user_msg):
+        intros = {
+            "visa_agent": (
+                "👋 **Hello! I am the Wanderpath Visa & Consular Desk Agent.**\n\n"
+                "I manage complex, multi-stage international visa applications using Task Decomposition, "
+                "live diplomatic policy retrieval (RAG), external embassy webhooks, and managerial fee approvals.\n\n"
+                "💡 *Quick Start:* Type your destination (e.g., *'Emergency Schengen visa for France'*) or click a scenario above!"
+            ),
+            "dispute_agent": (
+                "👋 **Hello! I am the Supplier Contract Dispute & Chargeback Specialist.**\n\n"
+                "I evaluate airline cancellations, force majeure clauses, and EU261 statutory compensation claims "
+                "using Tree of Thoughts (ToT) legal analysis and automated GDS clearinghouse filings.\n\n"
+                "💡 *Quick Start:* Enter your flight issue (e.g., *'PacificFly cancelled flight WP-202 due to crew strike'*) or click a scenario above!"
+            ),
+            "medevac_agent": (
+                "👋 **Hello! I am the VIP Aeromedical Evacuation & Repatriation Coordinator.**\n\n"
+                "I execute critical medical evacuations, utilizing LATS airfield scoring to match patient acuity against "
+                "aircraft range, runway lengths, and receiving ICU bed capacity, with physician sign-off gates.\n\n"
+                "💡 *Quick Start:* Enter the patient alert (e.g., *'Spinal trauma in Bali needing air charter to Singapore'*) or click a scenario above!"
+            ),
+            "planning_agent": (
+                "👋 **Hello! I am the Trip Disruption Planning Agent.**\n\n"
+                "I generate multi-stage dynamic DAGs to solve complex flight cancellations, hotel rebookings, and itinerary disruptions.\n\n"
+                "💡 *Quick Start:* Describe your broken itinerary to generate a rebooking plan!"
+            ),
+            "memory_rag_agent": (
+                "👋 **Hello! I am the Memory & Hybrid RAG Knowledge Agent.**\n\n"
+                "I maintain long-term traveler profiles and search our internal knowledge base for luxury resort and airline policies.\n\n"
+                "💡 *Quick Start:* Ask any policy question, e.g. *'What is the cancellation policy for Alpine Resort & Spa?'*"
+            )
+        }
+        return JSONResponse({
+            "agent_id": agent_id,
+            "thread_id": thread_id,
+            "status": "READY",
+            "response": intros.get(agent_id, "Hello! How can I assist you with Wanderpath travel services today?"),
+            "state": {"__status__": "READY"}
+        })
+
+    # Route to Visa Agent
     if agent_id == "visa_agent":
         init_state = {
             "client_id": params.get("client_id", 1),
@@ -107,15 +154,46 @@ async def handle_agent_chat(request: Request) -> JSONResponse:
             "user_prompt": user_msg,
         }
         res = await visa_graph.execute(thread_id, initial_state=init_state)
+        current_node = res.get("__current_node__")
+        status = res.get("__status__")
+
+        if current_node == "awaiting_consular_webhook" and status == "INTERRUPTED":
+            resp_text = (
+                f"🛂 **Consular Visa Dossier Submitted**\n\n"
+                f"• **Destination**: {res.get('destination', 'France')} ({res.get('visa_type', 'schengen').title()} Visa)\n"
+                f"• **Decomposed Milestones**: 6 milestones identified; passport verified & consular rules retrieved.\n"
+                f"• **Expedited Fee Estimated**: ${res.get('retrieved_fee', 650.0):.2f}\n"
+                f"• **Status**: ⏳ Application submitted to consular portal. **Awaiting asynchronous embassy webhook.**\n\n"
+                f"*(You can trigger the webhook arrival using the button below or simulate in the Command Center.)*"
+            )
+        elif current_node == "evaluate_consular_response" and status == "INTERRUPTED":
+            resp_text = (
+                f"🚨 **Consular Fee Authorization Required (HITL Gate)**\n\n"
+                f"• **Consular Response**: Emergency slot allocated.\n"
+                f"• **Expedited Fee**: **${res.get('consular_fee', 650.0):.2f}** (Exceeds agency standard threshold of $500.00).\n"
+                f"• **Action Required**: Escalated to Operations Command for managerial approval."
+            )
+        elif status == "COMPLETED":
+            resp_text = (
+                f"✅ **Visa Issued Successfully**\n\n"
+                f"• **Visa Reference**: `{res.get('visa_number', 'VISA-APPROVED')}`\n"
+                f"• **Destination**: {res.get('destination', 'France')}\n"
+                f"• **Fee Paid**: ${res.get('consular_fee', res.get('retrieved_fee', 650.0)):.2f}\n"
+                f"• **Status**: Validated and added to client traveler profile."
+            )
+        else:
+            resp_text = f"Visa Application processed to step: {current_node}. Status: {status}"
+
         return JSONResponse({
             "agent_id": agent_id,
             "thread_id": thread_id,
-            "status": res.get("__status__"),
-            "current_node": res.get("__current_node__"),
-            "response": f"Visa Application processed to step: {res.get('__current_node__')}. Status: {res.get('__status__')}",
+            "status": status,
+            "current_node": current_node,
+            "response": resp_text,
             "state": res,
         })
 
+    # Route to Dispute Agent
     elif agent_id == "dispute_agent":
         init_state = {
             "booking_id": params.get("booking_id", 3),
@@ -124,15 +202,44 @@ async def handle_agent_chat(request: Request) -> JSONResponse:
             "dispute_reason": user_msg,
         }
         res = await dispute_graph.execute(thread_id, initial_state=init_state)
+        current_node = res.get("__current_node__")
+        status = res.get("__status__")
+
+        if current_node == "awaiting_carrier_adjudication" and status == "INTERRUPTED":
+            resp_text = (
+                f"⚖️ **Supplier Dispute Claim Filed via GDS**\n\n"
+                f"• **Carrier**: {res.get('carrier', 'PacificFly')} | **Booking ID**: #{res.get('booking_id', 3)}\n"
+                f"• **Tree of Thoughts Strategy**: `{res.get('selected_strategy', 'EU261_STATUTORY_CLAIM')}`\n"
+                f"• **GDS Filing Ref**: `{res.get('gds_filing_ref', 'GDS-DISP-3')}`\n"
+                f"• **Status**: ⏳ Formal case filed. **Awaiting carrier 7-day settlement window.**"
+            )
+        elif current_node == "evaluate_settlement_offer" and status == "INTERRUPTED":
+            resp_text = (
+                f"🚨 **Fee Waiver Authorization Required (HITL Gate)**\n\n"
+                f"• **Carrier Settlement Offer**: Refund of ${res.get('carrier_settlement', {}).get('amount', 200.0):.2f}\n"
+                f"• **Fee Waiver Demanded**: **${res.get('carrier_settlement', {}).get('fee_waiver', 350.0):.2f}** (Exceeds agency threshold of $300.00).\n"
+                f"• **Action Required**: Escalated to Operations Command for commercial approval."
+            )
+        elif status == "COMPLETED":
+            resp_text = (
+                f"✅ **Dispute Settled & Ledger Credited**\n\n"
+                f"• **Booking ID**: #{res.get('booking_id', 3)}\n"
+                f"• **Refund Credited**: **${res.get('refund_credited', 200.0):.2f}**\n"
+                f"• **Status**: Finalized and reconciled in agency ledger."
+            )
+        else:
+            resp_text = f"Dispute Claim processed to step: {current_node}. Strategy: {res.get('selected_strategy')}"
+
         return JSONResponse({
             "agent_id": agent_id,
             "thread_id": thread_id,
-            "status": res.get("__status__"),
-            "current_node": res.get("__current_node__"),
-            "response": f"Dispute Claim processed to step: {res.get('__current_node__')}. Strategy: {res.get('selected_strategy')}",
+            "status": status,
+            "current_node": current_node,
+            "response": resp_text,
             "state": res,
         })
 
+    # Route to Medevac Agent
     elif agent_id == "medevac_agent":
         init_state = {
             "patient_name": params.get("patient_name", "Elena Rostova"),
@@ -141,15 +248,43 @@ async def handle_agent_chat(request: Request) -> JSONResponse:
             "acuity_level": params.get("acuity", "CRITICAL"),
         }
         res = await medevac_graph.execute(thread_id, initial_state=init_state)
+        current_node = res.get("__current_node__")
+        status = res.get("__status__")
+
+        if current_node == "awaiting_hospital_admission" and status == "INTERRUPTED":
+            resp_text = (
+                f"🚁 **VIP Aeromedical Evacuation Charter Initialized**\n\n"
+                f"• **Patient**: {res.get('patient_name', 'Elena Rostova')} | **Location**: {res.get('current_location', 'Bali')}\n"
+                f"• **LATS Selected Route**: `{res.get('selected_route_id', 'ROUTE_SGH_DIRECT')}` (Learjet 60XR Direct Air Ambulance to Singapore General Hospital)\n"
+                f"• **Standby Guarantee**: `${res.get('estimated_cost', 14500.0):.2f}` (`WP-MED-99`)\n"
+                f"• **Status**: ⏳ Air ambulance on tarmac standby. **Awaiting ICU bed availability confirmation.**"
+            )
+        elif current_node == "evaluate_physician_authorization" and status == "INTERRUPTED":
+            resp_text = (
+                f"🚨 **Physician Medical Director Authorization Required (HITL Gate)**\n\n"
+                f"• **Hospital Bed**: ICU Level 1 Confirmed (`ICU-BED-04` at SGH)\n"
+                f"• **Charter Cost**: **${res.get('estimated_cost', 14500.0):.2f}** (Exceeds emergency threshold of $5,000.00).\n"
+                f"• **Action Required**: Chief Medical Officer sign-off required for wheels-up launch."
+            )
+        elif status == "COMPLETED":
+            resp_text = (
+                f"🛫 **Patient Airborne & En Route to ICU**\n\n"
+                f"• **Mission ID**: `{res.get('mission_id', 'MEDEVAC-MISSION-COMPLETE')}`\n"
+                f"• **Status**: Learjet 60XR airborne; Singapore trauma team standing by on tarmac."
+            )
+        else:
+            resp_text = f"Medevac Mission processed to step: {current_node}. Selected Route: {res.get('selected_route_id')}"
+
         return JSONResponse({
             "agent_id": agent_id,
             "thread_id": thread_id,
-            "status": res.get("__status__"),
-            "current_node": res.get("__current_node__"),
-            "response": f"Medevac Mission processed to step: {res.get('__current_node__')}. Selected Route: {res.get('selected_route_id')}",
+            "status": status,
+            "current_node": current_node,
+            "response": resp_text,
             "state": res,
         })
 
+    # Route to Planning Agent
     elif agent_id == "planning_agent":
         provider = WanderpathModelProvider()
         routed_algo = route_subtask(user_msg, risk_level="medium", requires_branching=True)
@@ -159,10 +294,11 @@ async def handle_agent_chat(request: Request) -> JSONResponse:
             "thread_id": thread_id,
             "status": "COMPLETED",
             "routed_algorithm": routed_algo,
-            "response": f"Planning Strategy ({routed_algo}): {plan_res}",
+            "response": f"🗺️ **Dynamic Trip Disruption Plan ({routed_algo})**:\n\n{plan_res}",
             "state": {"plan_output": plan_res, "algorithm": routed_algo},
         })
 
+    # Route to Memory & RAG Agent
     elif agent_id == "memory_rag_agent":
         retrieved = vector_db.similarity_search(user_msg, n_results=1)
         rag_context = retrieved[0]["document"] if retrieved else "No direct policy match found in knowledge base."
@@ -170,11 +306,64 @@ async def handle_agent_chat(request: Request) -> JSONResponse:
             "agent_id": agent_id,
             "thread_id": thread_id,
             "status": "COMPLETED",
-            "response": f"Verified Travel Policy Response:\n\n{rag_context}",
+            "response": f"📖 **Verified Policy Knowledge Retrieval**:\n\n> {rag_context}",
             "state": {"retrieved_context": rag_context},
         })
 
     return JSONResponse({"error": f"Unknown agent_id: {agent_id}"}, status_code=400)
+
+
+# ============================================================================
+# 1.1 SIMULATE EXTERNAL ASYNCHRONOUS EVENTS & RESUME GRAPH
+# ============================================================================
+async def handle_simulate_external_event(request: Request) -> JSONResponse:
+    body = await request.json()
+    thread_id = body.get("thread_id")
+    agent_id = body.get("agent_id")
+    event_type = body.get("event_type", "webhook")
+
+    if not thread_id:
+        return JSONResponse({"error": "thread_id is required"}, status_code=400)
+
+    logger.info(f"[SimulateEvent] Triggering '{event_type}' on thread '{thread_id}' for agent '{agent_id}'")
+
+    if agent_id == "visa_agent":
+        payload = {
+            "consular_reference": "CONS-FRA-2026-991",
+            "decision": "APPROVED",
+            "fee": 650.00,
+            "notes": "Emergency consular fast-track biometrics slot allocated."
+        }
+        res = await visa_graph.execute(thread_id, resume_payload=payload)
+    elif agent_id == "dispute_agent":
+        payload = {
+            "carrier_settlement": {
+                "decision": "OFFER_PARTIAL",
+                "amount": 200.00,
+                "fee_waiver": 350.00,
+                "notes": "Carrier agrees to credit $200.00 with $350.00 fee waiver."
+            }
+        }
+        res = await dispute_graph.execute(thread_id, resume_payload=payload)
+    elif agent_id == "medevac_agent":
+        payload = {
+            "hospital_bed_confirmed": True,
+            "bed_id": "ICU-BED-04",
+            "physician": "Dr. K. Tan",
+            "saturated": False
+        }
+        res = await medevac_graph.execute(thread_id, resume_payload=payload)
+    else:
+        return JSONResponse({"error": f"Unsupported agent for event simulation: {agent_id}"}, status_code=400)
+
+    return JSONResponse({
+        "status": "success",
+        "agent_id": agent_id,
+        "thread_id": thread_id,
+        "new_graph_status": res.get("__status__"),
+        "current_node": res.get("__current_node__"),
+        "state": res
+    })
 
 
 # ============================================================================
@@ -325,10 +514,21 @@ async def serve_frontend_index(request: Request) -> HTMLResponse:
     return HTMLResponse(content="<h1>Wanderpath Platform Active</h1>")
 
 
+async def purge_resolved_hitl_tasks(request: Request) -> JSONResponse:
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
+    try:
+        conn.execute("DELETE FROM hitl_tasks WHERE status != 'PENDING';")
+        conn.commit()
+    finally:
+        conn.close()
+    return JSONResponse({"status": "success", "message": "Purged resolved HITL tasks."})
+
+
 # Route Declarations
 routes = [
     Route("/", endpoint=serve_frontend_index, methods=["GET"]),
     Route("/api/chat", endpoint=handle_agent_chat, methods=["POST"]),
+    Route("/api/chat/simulate_event", endpoint=handle_simulate_external_event, methods=["POST"]),
     Route("/api/admin/overview", endpoint=get_system_overview, methods=["GET"]),
     Route("/api/admin/tools", endpoint=list_admin_tools, methods=["GET"]),
     Route("/api/admin/tools/toggle", endpoint=toggle_admin_tool, methods=["POST"]),
@@ -338,6 +538,7 @@ routes = [
     Route("/api/admin/rag/documents", endpoint=add_rag_document, methods=["POST"]),
     Route("/api/admin/rag/documents/{doc_id}", endpoint=delete_rag_document, methods=["DELETE"]),
     Route("/api/admin/hitl/tasks", endpoint=list_hitl_tasks, methods=["GET"]),
+    Route("/api/admin/hitl/tasks/purge", endpoint=purge_resolved_hitl_tasks, methods=["POST"]),
     Route("/api/admin/hitl/tasks/{task_id}/resolve", endpoint=resolve_hitl_task, methods=["POST"]),
     Route("/api/admin/tickets", endpoint=list_failure_tickets, methods=["GET"]),
     Route("/api/admin/tickets/{ticket_id}/status", endpoint=update_ticket_status, methods=["POST"]),

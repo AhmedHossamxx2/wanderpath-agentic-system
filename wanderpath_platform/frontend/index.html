@@ -440,11 +440,16 @@
 
         <!-- TAB 3: HITL TASKS -->
         <div id="panel-hitl" class="hidden space-y-6">
-          <div class="pb-4 border-b border-slate-800">
-            <h3 class="text-base font-extrabold text-white flex items-center gap-2">
-              <i data-lucide="user-check" class="w-5 h-5 text-amber-400"></i> Human-in-the-Loop (HITL) Decision Queue
-            </h3>
-            <p class="text-xs text-slate-400 mt-0.5">Planned operational approval gates. Review client state and click Approve to resume the paused graph thread.</p>
+          <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div>
+              <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="user-check" class="w-5 h-5 text-amber-400"></i> Human-in-the-Loop (HITL) Decision Queue
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Planned operational approval gates. Review client state and click Approve to resume the paused graph thread.</p>
+            </div>
+            <button onclick="purgeResolvedHITL()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-semibold rounded-2xl text-xs flex items-center gap-1.5 transition-all shadow">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5 text-amber-400"></i> Clear Resolved Tasks
+            </button>
           </div>
           <div class="space-y-4" id="hitl-tasks-list">
             <!-- Populated dynamically -->
@@ -603,6 +608,10 @@
 
     function selectAgent(agentId) {
       currentAgent = agentId;
+      // Isolate threads per agent
+      currentThread = "thread-" + agentId.replace("_agent", "") + "-" + Math.random().toString(36).substring(2, 6);
+      document.getElementById("lbl-thread-id").innerText = currentThread;
+
       document.querySelectorAll(".agent-btn").forEach(btn => {
         btn.classList.remove("glass-card-active");
         btn.classList.add("glass-card");
@@ -656,11 +665,17 @@
           ${idx < meta.steps.length - 1 ? '<i data-lucide="chevron-right" class="w-3 h-3 text-slate-600"></i>' : ''}
         `).join("");
       }
+
+      // Reset state badge
+      const badge = document.getElementById("agent-state-badge");
+      badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-700/60 shadow-sm flex items-center gap-1.5";
+      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> READY`;
+
       lucide.createIcons();
     }
 
     function resetThread() {
-      currentThread = "thread-live-" + Math.random().toString(36).substring(2, 7);
+      currentThread = "thread-" + currentAgent.replace("_agent", "") + "-" + Math.random().toString(36).substring(2, 6);
       document.getElementById("lbl-thread-id").innerText = currentThread;
       document.getElementById("chat-feed").innerHTML = `
         <div class="flex items-start gap-4 max-w-3xl">
@@ -698,10 +713,16 @@
         // Update badge
         const badge = document.getElementById("agent-state-badge");
         badge.innerText = data.status || "COMPLETED";
-        if (data.status === "INTERRUPTED") {
+        const isExternalWait = data.current_node && data.current_node.includes("awaiting_");
+        
+        if (data.status === "INTERRUPTED" && isExternalWait) {
+          badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-blue-950 text-cyan-300 border border-cyan-500 shadow-md flex items-center gap-1.5 animate-pulse";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-cyan-400"></span> WAITING FOR WEBHOOK`;
+          showToast("Graph paused awaiting external asynchronous event.", "info");
+        } else if (data.status === "INTERRUPTED") {
           badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-amber-950 text-amber-300 border border-amber-600 shadow-md flex items-center gap-1.5 animate-pulse";
-          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> PAUSED (HITL / WEBHOOK)`;
-          showToast("Graph execution paused at approval gate. Check Command Center.", "warning");
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> PAUSED (HITL GATE)`;
+          showToast("Graph execution paused at HITL approval gate. Check Command Center.", "warning");
         } else if (data.status === "FAILED") {
           badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-rose-950 text-rose-300 border border-rose-600 shadow-md flex items-center gap-1.5 animate-pulse";
           badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span> FAILED (TICKET OPENED)`;
@@ -726,23 +747,47 @@
       const div = document.createElement("div");
       div.className = `flex items-start gap-3 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : ''}`;
       
+      const isExternalWait = state && state.__status__ === "INTERRUPTED" && 
+        (state.__interrupt_type__ === "AWAITING_EXTERNAL" || (state.__current_node__ && state.__current_node__.includes("awaiting_")));
+      const isHITL = state && state.__status__ === "INTERRUPTED" && !isExternalWait;
+
       div.innerHTML = `
         <div class="w-9 h-9 rounded-2xl ${isUser ? 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white' : 'bg-slate-900 border border-slate-800 text-blue-400'} flex items-center justify-center shrink-0 shadow-md">
           <i data-lucide="${isUser ? 'user' : 'bot'}" class="w-4 h-4"></i>
         </div>
         <div class="${isUser ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white' : 'glass-panel text-slate-200'} p-4 rounded-3xl text-xs space-y-2.5 shadow-xl">
           <p class="whitespace-pre-wrap leading-relaxed">${text}</p>
-          ${state && state.__status__ === "INTERRUPTED" ? `
-            <div class="p-3 bg-amber-950/40 border border-amber-500/40 rounded-2xl text-amber-200 text-[11px] space-y-1.5">
-              <div class="flex items-center gap-2 font-bold text-amber-400">
-                <i data-lucide="pause-circle" class="w-4 h-4"></i> Graph Paused at Node: <span class="font-mono underline">${state.__current_node__}</span>
+          
+          ${isExternalWait ? `
+            <div class="p-3.5 bg-blue-950/50 border border-cyan-500/40 rounded-2xl text-cyan-200 text-[11px] space-y-2 shadow-lg">
+              <div class="flex items-center justify-between font-bold text-cyan-300">
+                <span class="flex items-center gap-1.5"><i data-lucide="clock" class="w-4 h-4 text-cyan-400"></i> Asynchronous External Wait: <span class="font-mono underline">${state.__current_node__}</span></span>
+                <span class="px-2 py-0.5 bg-cyan-900/60 text-cyan-300 rounded text-[9px]">PAUSED</span>
               </div>
-              <p>Reason: ${state.__interrupt_reason__ || 'Awaiting external action'}</p>
+              <p class="text-slate-300 text-[11px]">${state.__interrupt_reason__ || 'Awaiting external partner webhook or event payload.'}</p>
               <div class="pt-1">
-                <button onclick="switchView('admin'); switchAdminTab('hitl')" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-[10px] shadow">Go to HITL Tasks & Resume →</button>
+                <button onclick="simulateExternalEvent('${currentAgent}', '${currentThread}')" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-extrabold rounded-xl text-[11px] shadow-lg shadow-cyan-600/30 hover:scale-105 transition-all flex items-center gap-1.5">
+                  <i data-lucide="zap" class="w-3.5 h-3.5"></i> Simulate Webhook / Event Arrival & Resume
+                </button>
               </div>
             </div>
           ` : ''}
+
+          ${isHITL ? `
+            <div class="p-3.5 bg-amber-950/40 border border-amber-500/40 rounded-2xl text-amber-200 text-[11px] space-y-2 shadow-lg">
+              <div class="flex items-center justify-between font-bold text-amber-400">
+                <span class="flex items-center gap-1.5"><i data-lucide="pause-circle" class="w-4 h-4"></i> Managerial Decision Gate (HITL Task)</span>
+                <span class="px-2 py-0.5 bg-amber-500 text-slate-950 rounded text-[9px] font-black animate-pulse">ACTION REQUIRED</span>
+              </div>
+              <p class="text-amber-200 text-[11px]">${state.__interrupt_reason__ || 'Condition exceeds operational threshold.'}</p>
+              <div class="pt-1">
+                <button onclick="switchView('admin'); switchAdminTab('hitl')" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-[11px] shadow-md hover:scale-105 transition-all flex items-center gap-1.5">
+                  <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Open Command Center -> HITL Tasks to Authorize →
+                </button>
+              </div>
+            </div>
+          ` : ''}
+
           ${state && state.__status__ === "FAILED" ? `
             <div class="p-3 bg-rose-950/40 border border-rose-500/40 rounded-2xl text-rose-200 text-[11px] space-y-1.5">
               <div class="flex items-center gap-2 font-bold text-rose-400">
@@ -759,6 +804,53 @@
       feed.appendChild(div);
       feed.scrollTop = feed.scrollHeight;
       lucide.createIcons();
+    }
+
+    async function simulateExternalEvent(agent, thread) {
+      showToast("Simulating asynchronous event delivery...", "info");
+      try {
+        const res = await fetch(`${API_BASE}/api/chat/simulate_event`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ agent_id: agent, thread_id: thread, event_type: "webhook" })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+          const badge = document.getElementById("agent-state-badge");
+          badge.innerText = data.new_graph_status;
+          if (data.new_graph_status === "INTERRUPTED") {
+            badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-amber-950 text-amber-300 border border-amber-600 shadow-md flex items-center gap-1.5 animate-pulse";
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> PAUSED (HITL GATE)`;
+            showToast("External event received -> Advanced to HITL approval gate!", "warning");
+          } else {
+            badge.className = "text-xs px-3 py-1 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-700/60 shadow-sm flex items-center gap-1.5";
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> COMPLETED`;
+            showToast("External event received -> Graph finalized successfully!", "success");
+          }
+
+          let followMsg = "⚡ External event received and state graph progressed.";
+          if (data.state.__current_node__ === "evaluate_consular_response") {
+            followMsg = "🚨 **Embassy Webhook Received**: Expedited fast-track slot approved with consular fee **$650.00**.\n\n*Condition Triggered: Expedited fee exceeds $500 threshold -> Escalated to HITL Decision Queue.*";
+          } else if (data.state.__current_node__ === "evaluate_settlement_offer") {
+            followMsg = "🚨 **Carrier Settlement Received**: PacificFly offered $200 refund with **$350 fee waiver**.\n\n*Condition Triggered: Fee waiver exceeds $300 threshold -> Escalated to HITL Decision Queue.*";
+          } else if (data.state.__current_node__ === "evaluate_physician_authorization") {
+            followMsg = "🚨 **Hospital Bed Confirmed**: SGH ICU-BED-04 confirmed. Charter guarantee **$14,500.00**.\n\n*Condition Triggered: Charter guarantee exceeds $5,000 threshold -> Escalated to Medical Director HITL.*";
+          } else if (data.new_graph_status === "COMPLETED") {
+            followMsg = "✅ **Workflow Completed**: Graph successfully finalized.";
+          }
+
+          appendMessage("agent", followMsg, data.state);
+          refreshAdminData();
+        }
+      } catch(err) {
+        showToast("Simulation error: " + err.message, "error");
+      }
+    }
+
+    async function purgeResolvedHITL() {
+      await fetch(`${API_BASE}/api/admin/hitl/purge`, { method: "POST" });
+      showToast("Purged all past resolved HITL tasks.", "info");
+      refreshAdminData();
     }
 
     function sendPreset(type) {
