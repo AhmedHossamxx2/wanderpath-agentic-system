@@ -211,11 +211,12 @@ class StateGraph:
             step_number = latest_chk.step_number
             parent_chk_id = latest_chk.checkpoint_id
             
-            # Check if this node was paused/interrupted
-            if state.get("__status__") == "INTERRUPTED":
-                # Resuming an interrupted node with admin or external payload
+            # Check if this node was paused/interrupted or failed
+            if state.get("__status__") in ["INTERRUPTED", "FAILED"] or (resume_payload and resume_payload.get("ticket_resolved_id")):
+                # Resuming an interrupted or failed node with admin or external payload
                 current_node = latest_chk.current_node
                 state["__status__"] = "RUNNING"
+                state.pop("__error__", None)
                 if resume_payload:
                     state["__resume_payload__"] = resume_payload
                     state.update(resume_payload)
