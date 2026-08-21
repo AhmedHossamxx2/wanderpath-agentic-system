@@ -90,11 +90,21 @@ GRAPH_REGISTRY = {
 # ============================================================================
 # 1. USER CHAT API & MULTI-AGENT ROUTER
 # ============================================================================
-GREETINGS = {"hi", "hello", "hey", "help", "start", "greetings", "good morning", "good evening", "what can you do?"}
+GREETINGS = {"hi", "hello", "hey", "greetings", "good morning", "good evening", "good afternoon", "welcome"}
+STATUS_KEYWORDS = {"now?", "now", "status", "status?", "what now?", "what next?", "what next", "what's next?", "where is my application?", "update", "update?"}
+GENERAL_QA = {"what can you help me with?", "what can you do?", "what can you do", "who are you?", "who are you", "are you smart?", "are you smart", "help", "help me"}
 
 def is_greeting(msg: str) -> bool:
     clean = msg.strip().lower().rstrip("!?.")
-    return clean in GREETINGS or len(clean) <= 3
+    return clean in GREETINGS
+
+def is_status_query(msg: str) -> bool:
+    clean = msg.strip().lower()
+    return clean in STATUS_KEYWORDS or "what now" in clean or "what next" in clean or "status" in clean
+
+def is_general_qa(msg: str) -> bool:
+    clean = msg.strip().lower()
+    return clean in GENERAL_QA or "can you help" in clean or "are you smart" in clean or "who are you" in clean
 
 async def handle_agent_chat(request: Request) -> JSONResponse:
     body = await request.json()
@@ -105,7 +115,7 @@ async def handle_agent_chat(request: Request) -> JSONResponse:
 
     logger.info(f"[ChatAPI] Route to agent '{agent_id}' on thread '{thread_id}': '{user_msg}'")
 
-    # Handle greetings / conversational intros
+    # 1. Handle Greetings
     if is_greeting(user_msg):
         intros = {
             "visa_agent": (
@@ -144,6 +154,101 @@ async def handle_agent_chat(request: Request) -> JSONResponse:
             "response": intros.get(agent_id, "Hello! How can I assist you with Wanderpath travel services today?"),
             "state": {"__status__": "READY"}
         })
+
+    # 2. Handle General Q&A / Agency Assistance Inquiries
+    if is_general_qa(user_msg):
+        qa_resp = (
+            "✨ **Wanderpath Autonomous Concierge Capabilities**:\n\n"
+            "I am powered by an enterprise agentic architecture featuring 5 specialized operational desks:\n\n"
+            "1. 🛂 **Visa & Consular Desk**: Stateful task decomposition & live consular RAG lookup with embassy webhooks.\n"
+            "2. ⚖️ **Supplier Dispute Desk**: Tree of Thoughts (ToT) arbitration & GDS chargeback filings.\n"
+            "3. 🚁 **VIP Medevac Desk**: Language Agent Tree Search (LATS) airfield routing with physician authorization.\n"
+            "4. 🗺️ **Disruption Planner**: DAG dynamic replanning for cancelled flights and multi-leg connections.\n"
+            "5. 🧠 **Memory & RAG Agent**: Long-term traveler profile memory and vector search across luxury policy guides.\n\n"
+            "Every state transition is backed by durable SQLite checkpoints guaranteeing zero data loss."
+        )
+        return JSONResponse({
+            "agent_id": agent_id,
+            "thread_id": thread_id,
+            "status": "READY",
+            "response": qa_resp,
+            "state": {"__status__": "READY"}
+        })
+
+    # 3. Handle Context-Aware Status / "What Next?" Inquiries on Active Threads
+    if is_status_query(user_msg):
+        graph_name_map = {
+            "visa_agent": "visa_processing_graph",
+            "dispute_agent": "supplier_dispute_graph",
+            "medevac_agent": "medevac_repatriation_graph"
+        }
+        target_gname = graph_name_map.get(agent_id)
+        latest_chk = checkpointer.load_latest_checkpoint(thread_id, graph_name=target_gname) if target_gname else None
+
+        if latest_chk:
+            cnode = latest_chk.current_node
+            cstatus = latest_chk.state_data.get("__status__")
+            if cnode == "awaiting_consular_webhook" and cstatus == "INTERRUPTED":
+                return JSONResponse({
+                    "agent_id": agent_id,
+                    "thread_id": thread_id,
+                    "status": "INTERRUPTED",
+                    "current_node": cnode,
+                    "response": (
+                        "⏳ **Current Status: Awaiting Embassy Webhook**\n\n"
+                        "Your digital visa dossier has been submitted. The application is paused waiting for the consulate to deliver its appointment webhook.\n\n"
+                        "👉 *Next Action:* Click **'Simulate Webhook / Event Arrival & Resume'** in the chat to simulate the embassy's response."
+                    ),
+                    "state": latest_chk.state_data
+                })
+            elif cnode == "evaluate_consular_response" and cstatus == "INTERRUPTED":
+                return JSONResponse({
+                    "agent_id": agent_id,
+                    "thread_id": thread_id,
+                    "status": "INTERRUPTED",
+                    "current_node": cnode,
+                    "response": (
+                        "🚨 **Current Status: Managerial Approval Required (HITL)**\n\n"
+                        "The consulate confirmed an emergency slot with a fee of **$650.00**, which exceeds the standard $500 threshold.\n\n"
+                        "👉 *Next Action:* Go to **Command Center -> HITL Tasks** and click **Approve & Resume Graph** to issue the visa."
+                    ),
+                    "state": latest_chk.state_data
+                })
+            elif cnode == "awaiting_carrier_adjudication" and cstatus == "INTERRUPTED":
+                return JSONResponse({
+                    "agent_id": agent_id,
+                    "thread_id": thread_id,
+                    "status": "INTERRUPTED",
+                    "current_node": cnode,
+                    "response": (
+                        "⏳ **Current Status: Awaiting Carrier Settlement**\n\n"
+                        "Your EU261 dispute claim is filed with the airline clearinghouse (7-day response window).\n\n"
+                        "👉 *Next Action:* Click **'Simulate Webhook / Event Arrival & Resume'** to receive the settlement offer."
+                    ),
+                    "state": latest_chk.state_data
+                })
+            elif cnode == "evaluate_settlement_offer" and cstatus == "INTERRUPTED":
+                return JSONResponse({
+                    "agent_id": agent_id,
+                    "thread_id": thread_id,
+                    "status": "INTERRUPTED",
+                    "current_node": cnode,
+                    "response": (
+                        "🚨 **Current Status: Fee Waiver Approval Required (HITL)**\n\n"
+                        "The airline proposed a $200 refund with a $350 booking fee waiver (exceeds $300 limit).\n\n"
+                        "👉 *Next Action:* Authorize the settlement under **Command Center -> HITL Tasks**."
+                    ),
+                    "state": latest_chk.state_data
+                })
+            elif cstatus == "COMPLETED":
+                return JSONResponse({
+                    "agent_id": agent_id,
+                    "thread_id": thread_id,
+                    "status": "COMPLETED",
+                    "current_node": cnode,
+                    "response": "✅ **Workflow Completed**: Your travel request has been fully processed and finalized in our database.",
+                    "state": latest_chk.state_data
+                })
 
     # Route to Visa Agent
     if agent_id == "visa_agent":
